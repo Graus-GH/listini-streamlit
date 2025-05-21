@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
+import io
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -46,7 +47,15 @@ if search_text:
 st.success(f"✅ {len(df_filtrato)} risultati trovati.")
 st.dataframe(df_filtrato)
 
-# Esporta in Excel
+# Esporta in Excel con BytesIO
 if not df_filtrato.empty:
-    excel = df_filtrato.to_excel(index=False, engine='openpyxl')
-    st.download_button("📥 Scarica Excel", data=excel, file_name="listini_filtrati.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    buffer = io.BytesIO()
+    df_filtrato.to_excel(buffer, index=False, engine='openpyxl')
+    buffer.seek(0)
+
+    st.download_button(
+        label="📥 Scarica Excel",
+        data=buffer,
+        file_name="listini_filtrati.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
