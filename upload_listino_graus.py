@@ -26,36 +26,38 @@ if uploaded_file and data_listino:
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
         current_producer = ""
         for page in pdf.pages:
-            text = page.extract_text()
-            if not text:
-                continue
+            words = page.extract_words(use_text_flow=True, keep_blank_chars=False)
+            lines_by_top = {}
+            for word in words:
+                top = round(word["top"])
+                if top not in lines_by_top:
+                    lines_by_top[top] = []
+                lines_by_top[top].append(word)
 
-            lines = text.split("\n")
-            for line in lines:
-                line = line.strip()
+            for top in sorted(lines_by_top):
+                line_words = lines_by_top[top]
+                line_text = " ".join(w["text"] for w in line_words).strip()
 
-                # Rimuove frammenti tipici di colonne grafiche errate
-                line = re.sub(r"^([A-Z]{2,}\s)?BIA.?N", "", line)
-                line = re.sub(r"[❖•*→←◆▪️]", "", line).strip()
-
-                # Identifica il nome del produttore: tutto MAIUSCOLO, centrato, senza numeri o prezzi
-                if (
-                    line.isupper()
-                    and len(line.split()) <= 4
-                    and not any(c in line for c in "€0123456789")
-                    and not line.startswith("PREZZO")
-                ):
-                    current_producer = line.strip()
+                # Ignora righe vuote o "BIANCHI", "ROSSI", simboli
+                if not line_text or line_text.lower() in ["bianchi", "rossi"]:
                     continue
 
-                # Cerca riga di prodotto con prezzo singolo e codice a fine riga
-                match = re.match(r"(.*?)(\d{1,3},\d{2})\s+(\d{5,})$", line)
-                if match:
+                # Identifica produttore: centrale, tutto maiuscolo e nessun numero
+                if (
+                    all(w["x0"] > 200 and w["x0"] < 400 for w in line_words) and
+                    line_text.isupper() and
+                    not any(char.isdigit() for char in line_text)
+                ):
+                    current_producer = line_text.strip()
+                    continue
+
+                # Cerca prezzo unitario e codice
+                match = re.match(r"(.*?)(\d{1,3},\d{2})\s+(\d{5,})$", line_text)
+                if match and current_producer:
                     descr_raw = match.group(1).strip()
                     prezzo = match.group(2).replace(",", ".")
                     codice = match.group(3)
 
-                    # Costruzione descrizione finale
                     descrizione_prodotto = f"{current_producer} {descr_raw}".strip()
                     note = f"Codice: {codice}"
 
