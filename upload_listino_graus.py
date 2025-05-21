@@ -36,26 +36,30 @@ if uploaded_file and data_listino:
                 if not line:
                     continue
 
-                # Se contiene solo lettere maiuscole o inizia con #indVINI (identifica un produttore)
+                # Se contiene solo lettere maiuscole o codice produttore (es. #indVINI12345#)
                 if line.isupper() or re.match(r"#indVINI\d{5}#([A-Z ]+)", line):
                     match = re.search(r"#indVINI\d{5}#([A-ZÀ-ÖØ-Ý]+)", line)
                     current_producer = match.group(1).strip() if match else line.strip()
                     continue
 
-                # Righe con prezzi e codici
-                match = re.match(r".*?([0-9]{1,3},\d{2})\s+([0-9]{1,3},\d{2})\s+\d{5,}", line)
+                # Cerca righe con prezzo e codice
+                match = re.match(r"(.*?)\s+(\d{1,3},\d{2})\s+(\d{1,3},\d{2})\s+(\d{5,})$", line)
                 if match:
-                    # Estrai solo descrizione: escludi prezzo e codice
-                    descrizione = re.sub(r"(\d{1,3},\d{2})\s+(\d{1,3},\d{2})\s+\d{5,}", "", line).strip("❖•-* ")
+                    raw_descrizione = match.group(1)
+                    prezzo_unitario = match.group(3).replace(",", ".")
+                    codice = match.group(4)
 
-                    prezzo_unitario = match.group(2).replace(",", ".")
+                    # Pulizia descrizione (rimuove simboli ❖, BIANCHI, ecc.)
+                    descrizione = re.sub(r"^[^a-zA-Z]*", "", raw_descrizione).strip()
+
                     descrizione_prodotto = f"{current_producer} {descrizione}".strip()
+                    note = f"Codice: {codice}"
 
                     rows.append({
                         "fornitore": fornitore,
                         "descrizione_prodotto": descrizione_prodotto,
                         "prezzo": prezzo_unitario,
-                        "note": "",
+                        "note": note,
                         "data_listino": data_listino.isoformat(),
                         "nome_file": nome_file
                     })
