@@ -29,36 +29,40 @@ if uploaded_file and data_listino:
             text = page.extract_text()
             if not text:
                 continue
-            lines = text.split("\n")
 
+            lines = text.split("\n")
             for line in lines:
                 line = line.strip()
-                if not line:
+
+                # Rimuove frammenti tipici di colonne grafiche errate
+                line = re.sub(r"^([A-Z]{2,}\s)?BIA.?N", "", line)
+                line = re.sub(r"[❖•*→←◆▪️]", "", line).strip()
+
+                # Identifica il nome del produttore: tutto MAIUSCOLO, centrato, senza numeri o prezzi
+                if (
+                    line.isupper()
+                    and len(line.split()) <= 4
+                    and not any(c in line for c in "€0123456789")
+                    and not line.startswith("PREZZO")
+                ):
+                    current_producer = line.strip()
                     continue
 
-                # Se contiene solo lettere maiuscole o codice produttore (es. #indVINI12345#)
-                if line.isupper() or re.match(r"#indVINI\d{5}#([A-Z ]+)", line):
-                    match = re.search(r"#indVINI\d{5}#([A-ZÀ-ÖØ-Ý]+)", line)
-                    current_producer = match.group(1).strip() if match else line.strip()
-                    continue
-
-                # Cerca righe con prezzo e codice
-                match = re.match(r"(.*?)\s+(\d{1,3},\d{2})\s+(\d{1,3},\d{2})\s+(\d{5,})$", line)
+                # Cerca riga di prodotto con prezzo singolo e codice a fine riga
+                match = re.match(r"(.*?)(\d{1,3},\d{2})\s+(\d{5,})$", line)
                 if match:
-                    raw_descrizione = match.group(1)
-                    prezzo_unitario = match.group(3).replace(",", ".")
-                    codice = match.group(4)
+                    descr_raw = match.group(1).strip()
+                    prezzo = match.group(2).replace(",", ".")
+                    codice = match.group(3)
 
-                    # Pulizia descrizione (rimuove simboli ❖, BIANCHI, ecc.)
-                    descrizione = re.sub(r"^[^a-zA-Z]*", "", raw_descrizione).strip()
-
-                    descrizione_prodotto = f"{current_producer} {descrizione}".strip()
+                    # Costruzione descrizione finale
+                    descrizione_prodotto = f"{current_producer} {descr_raw}".strip()
                     note = f"Codice: {codice}"
 
                     rows.append({
                         "fornitore": fornitore,
                         "descrizione_prodotto": descrizione_prodotto,
-                        "prezzo": prezzo_unitario,
+                        "prezzo": prezzo,
                         "note": note,
                         "data_listino": data_listino.isoformat(),
                         "nome_file": nome_file
