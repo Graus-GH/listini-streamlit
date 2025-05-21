@@ -13,22 +13,36 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 st.set_page_config(page_title="Consulta Listini", layout="wide")
 st.title("📊 Consulta Listini Caricati")
 
-# Caricamento completo per filtraggio e paginazione
-full_response = supabase.table("listini").select("*").execute()
-full_data = full_response.data
-df_all = pd.DataFrame(full_data)
+# Ottieni conteggio totale reale
+count_response = supabase.table("listini").select("id", count="exact").limit(1).execute()
+total_records = count_response.count
+
+# Mostra conteggio totale in alto a destra
+st.markdown(f"<div style='text-align: right; font-size: 16px;'>📦 Totale righe nel database: <strong>{total_records:,}</strong></div>", unsafe_allow_html=True)
+
+# Recupera tutti i dati per filtraggio (con paginazione applicata successivamente)
+# Carichiamo in blocchi da 1000 (paginazione manuale)
+all_data = []
+page_size_supabase = 1000
+offset = 0
+
+while True:
+    response = supabase.table("listini").select("*").range(offset, offset + page_size_supabase - 1).execute()
+    data = response.data
+    if not data:
+        break
+    all_data.extend(data)
+    offset += page_size_supabase
+
+df_all = pd.DataFrame(all_data)
 
 if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
     st.stop()
 
-# Mostra totale righe in alto a destra
-st.markdown(f"<div style='text-align: right; font-size: 16px;'>📦 Totale righe nel database: <strong>{len(df_all):,}</strong></div>", unsafe_allow_html=True)
-
-# Paginazione
+# Paginazione visiva
 page_size = 500
-total_records = len(df_all)
-total_pages = math.ceil(total_records / page_size)
+total_pages = math.ceil(len(df_all) / page_size)
 
 page_number = st.sidebar.number_input(
     "📄 Pagina",
