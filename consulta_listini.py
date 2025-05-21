@@ -22,6 +22,9 @@ if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
     st.stop()
 
+# Mostra totale righe in alto a destra
+st.markdown(f"<div style='text-align: right; font-size: 16px;'>📦 Totale righe nel database: <strong>{len(df_all):,}</strong></div>", unsafe_allow_html=True)
+
 # Paginazione
 page_size = 500
 total_records = len(df_all)
