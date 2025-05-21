@@ -13,7 +13,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Upload Listino GRAUS", layout="wide")
-st.title("📥 Carica Listino GRAUS (PDF)")
+st.title("📥 Carica Listino GRAUS (PDF da struttura tabellare)")
 
 uploaded_file = st.file_uploader("Seleziona il file PDF del listino GRAUS", type="pdf")
 data_listino = st.date_input("Data di riferimento del listino")
@@ -26,44 +26,37 @@ if uploaded_file and data_listino:
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
         current_producer = ""
         for page in pdf.pages:
-            words = page.extract_words(use_text_flow=True, keep_blank_chars=False)
-            lines_by_top = {}
-            for word in words:
-                top = round(word["top"])
-                if top not in lines_by_top:
-                    lines_by_top[top] = []
-                lines_by_top[top].append(word)
+            text = page.extract_text()
+            if not text:
+                continue
+            lines = text.split("
+")
+            for line in lines:
+                line = line.strip()
 
-            for top in sorted(lines_by_top):
-                line_words = lines_by_top[top]
-                line_text = " ".join(w["text"] for w in line_words).strip()
-
-                # Ignora righe vuote o "BIANCHI", "ROSSI", simboli
-                if not line_text or line_text.lower() in ["bianchi", "rossi"]:
+                # Rileva nuovo produttore (es. #indVINI00004#		ABRAHAM)
+                match_prod = re.match(r"#indVINI\d{5}#\s+(.*?)\s+(PREZZO|$)", line)
+                if match_prod:
+                    current_producer = match_prod.group(1).strip()
                     continue
 
-                # Identifica produttore: centrale, tutto maiuscolo e nessun numero
-                if (
-                    all(w["x0"] > 200 and w["x0"] < 400 for w in line_words) and
-                    line_text.isupper() and
-                    not any(char.isdigit() for char in line_text)
-                ):
-                    current_producer = line_text.strip()
+                # Salta righe intestazione o categoria (BIANCHI, ROSSI, ROSE')
+                if re.match(r"^(BIANCHI|ROSSI|ROSE')\s*(\❖)?$", line):
                     continue
 
-                # Cerca prezzo unitario e codice
-                match = re.match(r"(.*?)(\d{1,3},\d{2})\s+(\d{5,})$", line_text)
-                if match and current_producer:
-                    descr_raw = match.group(1).strip()
-                    prezzo = match.group(2).replace(",", ".")
-                    codice = match.group(3)
-
-                    descrizione_prodotto = f"{current_producer} {descr_raw}".strip()
+                # Rileva riga con prodotto, prezzo unitario e codice (con o senza prezzo confezione)
+                match_prod_row = re.match(
+                    r"(?:BIANCHI|ROSSI|ROSE')?\s*[❖\-*•]?(.*?)\s+(\d{1,3},\d{2})\s+(\d{5,})$", line
+                )
+                if match_prod_row:
+                    descrizione = match_prod_row.group(1).strip()
+                    prezzo = match_prod_row.group(2).replace(",", ".")
+                    codice = match_prod_row.group(3)
+                    descrizione_completa = f"{current_producer} {descrizione}"
                     note = f"Codice: {codice}"
-
                     rows.append({
                         "fornitore": fornitore,
-                        "descrizione_prodotto": descrizione_prodotto,
+                        "descrizione_prodotto": descrizione_completa,
                         "prezzo": prezzo,
                         "note": note,
                         "data_listino": data_listino.isoformat(),
