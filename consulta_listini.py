@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 import io
+import math
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -12,14 +13,20 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 st.set_page_config(page_title="Consulta Listini", layout="wide")
 st.title("📊 Consulta Listini Caricati")
 
-# Caricamento dati da Supabase
-with st.spinner("📥 Caricamento dati..."):
-    response = supabase.table("listini").select("*").execute()
+# Calcolo pagina corrente
+page_size = 500
+page_number = st.sidebar.number_input("📄 Pagina", min_value=1, value=1, step=1)
+
+offset = (page_number - 1) * page_size
+
+# Caricamento dati da Supabase con paginazione
+with st.spinner(f"📥 Caricamento dati pagina {page_number}..."):
+    response = supabase.table("listini").select("*").range(offset, offset + page_size - 1).execute()
     data = response.data
     df = pd.DataFrame(data)
 
 if df.empty:
-    st.warning("⚠️ Nessun dato trovato.")
+    st.warning("⚠️ Nessun dato trovato per questa pagina.")
     st.stop()
 
 # Filtri
@@ -44,7 +51,7 @@ df_filtrato = df[
 if search_text:
     df_filtrato = df_filtrato[df_filtrato.apply(lambda row: search_text.lower() in str(row).lower(), axis=1)]
 
-st.success(f"✅ {len(df_filtrato)} risultati trovati.")
+st.success(f"✅ {len(df_filtrato)} risultati nella pagina corrente.")
 st.dataframe(df_filtrato)
 
 # Esporta in Excel con BytesIO
@@ -56,6 +63,6 @@ if not df_filtrato.empty:
     st.download_button(
         label="📥 Scarica Excel",
         data=buffer,
-        file_name="listini_filtrati.xlsx",
+        file_name=f"listini_pagina_{page_number}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
