@@ -5,6 +5,7 @@ from supabase import create_client, Client
 import io
 import math
 from html import escape
+import re
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -73,7 +74,7 @@ def evidenzia_html(row):
         val = str(row[col])
         val = escape(val)
         if col == "fornitore" and val.strip().upper() == "GRAUS":
-            val = f"<span style='color: #0066cc; font-weight: bold'>{val}</span>"
+            val = f"<span style='color: #0066cc; font-weight: bold'>GRAUS <img src='https://www.graus.bz.it/favicon.ico' style='height:16px; vertical-align:middle; margin-left:4px'></span>"
         else:
             for parola in parole:
                 if parola.lower() in val.lower():
