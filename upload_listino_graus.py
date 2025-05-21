@@ -29,8 +29,7 @@ if uploaded_file and data_listino:
             text = page.extract_text()
             if not text:
                 continue
-            lines = text.split("
-")
+            lines = text.split("\n")
             for line in lines:
                 line = line.strip()
 
