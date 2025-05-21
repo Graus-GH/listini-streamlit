@@ -26,14 +26,15 @@ if uploaded_file and data_listino:
     for _, row in df.iterrows():
         riga = str(row.get("Schaumweine", "")).strip()
         formato = str(row.get("Unnamed: 1", "")).strip()
-        annata = str(row.get("Unnamed: 2", "")).strip()
+        annata_raw = row.get("Unnamed: 2", "")
+        annata = str(annata_raw).strip() if pd.notna(annata_raw) else ""
         prezzo_raw = str(row.get("Unnamed: 3", "")).strip()
 
         if re.match(r"^\d{5,}\s+.+", riga) and re.search(r"\d", prezzo_raw):
             descr = re.sub(r"^\d{5,}\s+", "", riga)
 
             descrizione_finale = f"{descr} {formato}".strip()
-            if annata and annata not in descrizione_finale:
+            if annata and annata.lower() != "nan":
                 descrizione_finale += f" {annata}"
 
             prezzo = re.sub(r"[€\s]", "", prezzo_raw).replace(",", ".")
