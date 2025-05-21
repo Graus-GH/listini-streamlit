@@ -4,6 +4,7 @@ import pandas as pd
 from supabase import create_client, Client
 import io
 import math
+from html import escape
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -13,34 +14,18 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 st.set_page_config(page_title="Consulta Listini", layout="wide")
 st.title("📊 Consulta Listini Caricati")
 
-# Ottieni conteggio totale reale
-count_response = supabase.table("listini").select("id", count="exact").limit(1).execute()
-total_records = count_response.count
-
-# Mostra conteggio totale in alto a destra
-st.markdown(f"<div style='text-align: right; font-size: 16px;'>📦 Totale righe nel database: <strong>{total_records:,}</strong></div>", unsafe_allow_html=True)
-
-# Recupera tutti i dati per filtraggio (con paginazione applicata successivamente)
-# Carichiamo in blocchi da 1000 (paginazione manuale)
-all_data = []
-page_size_supabase = 1000
-offset = 0
-
-while True:
-    response = supabase.table("listini").select("*").range(offset, offset + page_size_supabase - 1).execute()
-    data = response.data
-    if not data:
-        break
-    all_data.extend(data)
-    offset += page_size_supabase
-
-df_all = pd.DataFrame(all_data)
+# Recupera massimo 1000 righe per prestazioni
+full_response = supabase.table("listini").select("*").limit(1000).execute()
+df_all = pd.DataFrame(full_response.data)
 
 if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
     st.stop()
 
-# Paginazione visiva
+# Mostra totale righe caricate
+st.markdown(f"<div style='text-align: right; font-size: 16px;'>📦 Righe caricate: <strong>{len(df_all):,}</strong></div>", unsafe_allow_html=True)
+
+# Paginazione
 page_size = 500
 total_pages = math.ceil(len(df_all) / page_size)
 
@@ -71,15 +56,40 @@ df_filtrato = df_all[
     (pd.to_datetime(df_all["data_listino"]) <= pd.to_datetime(date_range[1]))
 ]
 
-if search_text:
-    df_filtrato = df_filtrato[df_filtrato.apply(lambda row: search_text.lower() in str(row).lower(), axis=1)]
+# Ricerca con evidenziazione
+parole = search_text.lower().split() if search_text else []
+
+if parole:
+    df_filtrato = df_filtrato[
+        df_filtrato.apply(lambda row: all(p in str(row).lower() for p in parole), axis=1)
+    ]
+
+# Funzione evidenzia parole
+def evidenzia_testo(testo, parole):
+    testo_escaped = escape(str(testo))
+    for parola in parole:
+        testo_escaped = testo_escaped.replace(
+            parola, f"<mark>{parola}</mark>"
+        )
+        testo_escaped = testo_escaped.replace(
+            parola.capitalize(), f"<mark>{parola.capitalize()}</mark>"
+        )
+    return testo_escaped
 
 # Segmenta per pagina
 offset = (page_number - 1) * page_size
 df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
 st.markdown(f"### ✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali")
-st.dataframe(df_pagina, use_container_width=True, height=1000)
+
+# Mostra tabella con evidenziazione
+if parole:
+    df_html = df_pagina.copy()
+    for col in df_html.columns:
+        df_html[col] = df_html[col].apply(lambda x: evidenzia_testo(x, parole))
+    st.markdown(df_html.to_html(escape=False, index=False), unsafe_allow_html=True)
+else:
+    st.dataframe(df_pagina, use_container_width=True, height=1000)
 
 # Download pagina corrente
 if not df_pagina.empty:
