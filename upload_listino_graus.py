@@ -13,7 +13,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Upload Listino GRAUS", layout="wide")
-st.title("📥 Carica Listino GRAUS (tabella vera via extract_table)")
+st.title("📥 Carica Listino GRAUS (via coordinate)")
 
 uploaded_file = st.file_uploader("Seleziona il file PDF del listino GRAUS", type="pdf")
 data_listino = st.date_input("Data di riferimento del listino")
@@ -26,44 +26,48 @@ if uploaded_file and data_listino:
 
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
         for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                for line in text.split("\n"):
-                    match = re.match(r"#indVINI\d{5}#\s*(.+)", line.strip())
-                    if match:
-                        current_producer = match.group(1).strip()
-                        break  # Assumi che il produttore venga prima della tabella
+            words = page.extract_words(use_text_flow=False)
+            lines_by_top = {}
 
-            table = page.extract_table()
-            if not table:
-                continue
+            for word in words:
+                top = round(word["top"])
+                if top not in lines_by_top:
+                    lines_by_top[top] = []
+                lines_by_top[top].append(word)
 
-            for row in table:
-                if not row or len(row) < 5:
-                    continue
-                prodotto = row[2]
-                prezzo_unitario = row[3]
-                codice = row[4]
+            for top in sorted(lines_by_top.keys()):
+                line_words = sorted(lines_by_top[top], key=lambda w: w["x0"])
 
-                # Salta se dati non coerenti
-                if not prodotto or not prezzo_unitario or not codice:
+                full_line = " ".join(w["text"] for w in line_words).strip()
+
+                # Riconosci produttore
+                match_prod = re.match(r"#indVINI\d{5}#\s*(.+)", full_line)
+                if match_prod:
+                    current_producer = match_prod.group(1).strip()
                     continue
 
-                try:
-                    prezzo = prezzo_unitario.replace(",", ".")
-                    descrizione_completa = f"{current_producer} {prodotto.strip()}"
-                    note = f"Codice: {codice.strip()}"
+                if not current_producer:
+                    continue
+
+                # Separiamo parole per colonna
+                prodotto_words = [w["text"] for w in line_words if 100 <= w["x0"] < 420]
+                prezzo_words = [w["text"] for w in line_words if 420 <= w["x0"] < 490]
+                codice_words = [w["text"] for w in line_words if w["x0"] >= 490]
+
+                if len(prodotto_words) >= 2 and len(prezzo_words) == 1 and len(codice_words) == 1:
+                    descrizione = f"{current_producer} {' '.join(prodotto_words).strip()}"
+                    prezzo = prezzo_words[0].replace(",", ".").strip()
+                    codice = codice_words[0].strip()
+                    note = f"Codice: {codice}"
 
                     rows.append({
                         "fornitore": fornitore,
-                        "descrizione_prodotto": descrizione_completa,
+                        "descrizione_prodotto": descrizione,
                         "prezzo": prezzo,
                         "note": note,
                         "data_listino": data_listino.isoformat(),
                         "nome_file": nome_file
                     })
-                except:
-                    continue
 
     df = pd.DataFrame(rows)
     st.success(f"✅ Trovati {len(df)} prodotti.")
