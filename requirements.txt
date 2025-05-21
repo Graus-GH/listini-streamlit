@@ -3,3 +3,6 @@ pandas
 pdfplumber
 supabase
 openpyxl
+pytesseract
+Pillow
+PyMuPDF
