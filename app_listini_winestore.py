@@ -30,7 +30,15 @@ if uploaded_file and data_listino:
 
         if re.match(r"^\d{5,}\s+.+", riga) and re.search(r"\d", prezzo_raw):
             descr = re.sub(r"^\d{5,}\s+", "", riga)
+
+            # Estrai annata dalla descrizione (es. 2017–2025)
+            annata_match = re.search(r"(19|20)\d{2}", descr)
+            annata = annata_match.group(0) if annata_match else ""
+
+            # Costruisci descrizione finale
             descrizione_finale = f"{descr} {formato}".strip()
+            if annata:
+                descrizione_finale += f" {annata}"
 
             prezzo = re.sub(r"[€\s]", "", prezzo_raw).replace(",", ".")
             try:
