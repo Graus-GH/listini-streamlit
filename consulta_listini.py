@@ -4,19 +4,30 @@ import pandas as pd
 from supabase import create_client, Client
 import io
 import math
-from html import escape
-import re
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="Consulta Listini", layout="wide")
-st.title("📊 Consulta Listini Caricati")
+st.set_page_config(page_title="Consulta Listini (interattivo)", layout="wide")
+st.title("📊 Consulta Listini Caricati (Tabella Dinamica)")
 
-full_response = supabase.table("listini").select("*").limit(1000).execute()
-df_all = pd.DataFrame(full_response.data)
+# Recupera TUTTE le righe
+data = []
+limit = 1000
+offset = 0
+while True:
+    resp = supabase.table("listini").select("*").range(offset, offset + limit - 1).execute()
+    batch = resp.data
+    if not batch:
+        break
+    data.extend(batch)
+    if len(batch) < limit:
+        break
+    offset += limit
+
+df_all = pd.DataFrame(data)
 
 if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
@@ -37,7 +48,7 @@ page_number = st.sidebar.number_input(
 # Filtri
 with st.sidebar:
     st.header("🔍 Filtri")
-    fornitori = df_all["fornitore"].unique().tolist()
+    fornitori = sorted(df_all["fornitore"].dropna().unique().tolist())
     fornitore_sel = st.multiselect("Fornitore", fornitori, default=fornitori)
 
     date_min = pd.to_datetime(df_all["data_listino"]).min()
@@ -67,28 +78,8 @@ df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
 st.markdown(f"### ✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali")
 
-# Evidenziazione HTML
-def evidenzia_html(row):
-    html = ""
-    for col in df_pagina.columns:
-        val = str(row[col])
-        val = escape(val)
-        if col == "fornitore" and val.strip().upper() == "GRAUS":
-            val = f"<span style='color: #0066cc; font-weight: bold'>GRAUS <img src='https://www.graus.bz.it/favicon.ico' style='height:16px; vertical-align:middle; margin-left:4px'></span>"
-        else:
-            for parola in parole:
-                if parola.lower() in val.lower():
-                    val = re.sub(f"({re.escape(parola)})", r"<mark>\1</mark>", val, flags=re.IGNORECASE)
-        html += f"<td>{val}</td>"
-    return f"<tr>{html}</tr>"
-
-if not df_pagina.empty:
-    html_table = "<table><thead><tr>" + "".join(f"<th>{escape(col)}</th>" for col in df_pagina.columns) + "</tr></thead><tbody>"
-    html_table += "".join(df_pagina.apply(evidenzia_html, axis=1))
-    html_table += "</tbody></table>"
-    st.markdown(html_table, unsafe_allow_html=True)
-else:
-    st.info("Nessun risultato trovato.")
+# Mostra tabella interattiva
+st.dataframe(df_pagina, use_container_width=True)
 
 # Download pagina corrente
 if not df_pagina.empty:
