@@ -32,21 +32,20 @@ if uploaded_file and data_listino:
             for line in text.split("\n"):
                 line = line.strip()
 
-                # Cerca righe con prezzo iniziale (es. 17,90 ...)
-                match = re.match(r"^(\d{1,3}[.,]\d{2})\s+\d+\s+(.*)", line)
+                # Rileva righe tipo: prezzo codice descrizione
+                match = re.match(r"^(\d{1,3}[.,]\d{2})\s+\d{5,}\s+(.*)", line)
                 if match:
                     prezzo = match.group(1).replace(",", ".")
-                    descrizione = match.group(2).strip()
+                    descrizione = match.group(2)
 
-                    # Estrai formato
+                    # Estrai formato (es. 0,75 o 1,5)
                     formato_match = re.search(r"(\d{1,2}[.,]\d{2})\s?l?", descrizione)
                     formato = formato_match.group(1).replace(",", ".") if formato_match else ""
 
-                    # Estrai annata
+                    # Estrai annata (es. 2017–2025)
                     annata_match = re.search(r"(19|20)\d{2}", descrizione)
                     annata = annata_match.group(0) if annata_match else ""
 
-                    # Costruisci descrizione finale
                     descrizione_finale = descrizione
                     if formato:
                         descrizione_finale += f" {formato}"
@@ -55,7 +54,7 @@ if uploaded_file and data_listino:
 
                     rows.append({
                         "fornitore": fornitore,
-                        "descrizione_prodotto": descrizione_finale,
+                        "descrizione_prodotto": descrizione_finale.strip(),
                         "prezzo": prezzo,
                         "note": "",
                         "data_listino": data_listino.isoformat(),
