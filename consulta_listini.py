@@ -49,31 +49,29 @@ with st.sidebar:
 
     search_text = st.text_input("Testo libero (prodotto, note...)")
 
-# Applica filtri
+# Applica filtri base
 df_filtrato = df_all[
     df_all["fornitore"].isin(fornitore_sel) &
     (pd.to_datetime(df_all["data_listino"]) >= pd.to_datetime(date_range[0])) &
     (pd.to_datetime(df_all["data_listino"]) <= pd.to_datetime(date_range[1]))
 ]
 
-# Ricerca con evidenziazione
+# Ricerca fuzzy per parole contenute ovunque nella riga
 parole = search_text.lower().split() if search_text else []
 
+def contiene_parole(row, parole):
+    testo = " ".join(str(val).lower() for val in row)
+    return all(p in testo for p in parole)
+
 if parole:
-    df_filtrato = df_filtrato[
-        df_filtrato.apply(lambda row: all(p in str(row).lower() for p in parole), axis=1)
-    ]
+    df_filtrato = df_filtrato[df_filtrato.apply(lambda row: contiene_parole(row, parole), axis=1)]
 
 # Funzione evidenzia parole
 def evidenzia_testo(testo, parole):
     testo_escaped = escape(str(testo))
     for parola in parole:
-        testo_escaped = testo_escaped.replace(
-            parola, f"<mark>{parola}</mark>"
-        )
-        testo_escaped = testo_escaped.replace(
-            parola.capitalize(), f"<mark>{parola.capitalize()}</mark>"
-        )
+        testo_escaped = testo_escaped.replace(parola, f"<mark>{parola}</mark>")
+        testo_escaped = testo_escaped.replace(parola.capitalize(), f"<mark>{parola.capitalize()}</mark>")
     return testo_escaped
 
 # Segmenta per pagina
