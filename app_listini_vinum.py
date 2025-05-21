@@ -13,12 +13,18 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Estrazione Listini Fornitori", layout="wide")
-
 st.title("📦 Estrazione Listini PDF - Fornitore VINUM")
 
 uploaded_file = st.file_uploader("Carica un file PDF", type="pdf")
-
 data_listino = st.date_input("Data a cui si riferisce il listino")
+
+def estrai_note(testo):
+    note_trovate = []
+    parole_chiave = ["BIO", "Piwi", "limitiert", "auf Anfrage", "Restmenge"]
+    for parola in parole_chiave:
+        if parola.lower() in testo.lower():
+            note_trovate.append(parola)
+    return ", ".join(note_trovate)
 
 if uploaded_file and data_listino:
     nome_file = uploaded_file.name
@@ -37,30 +43,24 @@ if uploaded_file and data_listino:
                 if line.strip().isupper() and len(line.strip().split()) <= 4:
                     current_producer = line.strip()
                     continue
-                if "€" in line:
-                    parts = line.rsplit('€', 1)
-                    prezzo = parts[1].strip().replace(",", ".")
-                    left = parts[0].strip()
-
-                    # Pulizia descrizione e composizione campo unico
-                    match = re.search(r'(\d{1,3}[,.]\d{2})\s*$', left)
-                    if match:
-                        left = left[:match.start()].strip()
+                if "€" in line or re.search(r"(auf Anfrage|Restmenge|\d{1,3}[,.]\d{2})", line):
+                    match_prezzo = re.search(r"(auf Anfrage|Restmenge|\d{1,3}[,.]\d{2})\s*$", line)
+                    prezzo = match_prezzo.group(1).replace(",", ".") if match_prezzo else ""
+                    left = line.replace(prezzo, "").replace("€", "").strip()
                     descrizione_prodotto = f"{current_producer} - {left}"
+                    note = estrai_note(line)
 
                     rows.append({
                         "fornitore": fornitore,
                         "descrizione_prodotto": descrizione_prodotto,
-                        "prezzo": float(prezzo) if prezzo.replace('.', '', 1).isdigit() else None,
-                        "categoria": "vino",  # per ora fisso
-                        "note": "",
+                        "prezzo": prezzo,
+                        "note": note,
                         "data_listino": data_listino.isoformat(),
                         "nome_file": nome_file
                     })
 
     df = pd.DataFrame(rows)
     st.success(f"✅ Trovati {len(df)} prodotti nel file.")
-
     st.dataframe(df)
 
     if st.button("📤 Carica su Supabase"):
