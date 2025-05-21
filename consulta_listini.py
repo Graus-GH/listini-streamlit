@@ -79,7 +79,7 @@ df_pagina = df_filtrato.iloc[offset:offset + page_size]
 st.markdown(f"### ✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali")
 
 # Mostra tabella interattiva
-st.dataframe(df_pagina, use_container_width=True)
+st.dataframe(df_pagina, use_container_width=True, height=800)
 
 # Download pagina corrente
 if not df_pagina.empty:
