@@ -94,7 +94,9 @@ if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
 
 # Paginazione
 offset = (page_number - 1) * page_size
+df_filtrato = df_filtrato.sort_values(by=["fornitore", "descrizione_prodotto", "prezzo"], ascending=[True, True, True])
 df_pagina = df_filtrato.iloc[offset:offset + page_size]
+
 
 st.markdown(f"<h5>✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali</h5>", unsafe_allow_html=True)
 
