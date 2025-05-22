@@ -23,19 +23,18 @@ if uploaded_file and data_listino:
     produttore_corrente = ""
 
     for _, row in df.iterrows():
-        if pd.notna(row[5]):
+        if pd.notna(row[5]) and pd.isna(row[6]):
             produttore_corrente = str(row[5]).strip()
             continue
 
-        descr = row[6]
-        prezzo = row[7]
+        descr = row[5]
+        prezzo = row[6]
         codice = row[8]
 
         if (
             pd.notna(descr) and
             isinstance(descr, str) and
             "PREZZO" not in descr.upper() and
-            "SINGOLA" not in descr.upper() and
             pd.notna(prezzo) and
             pd.notna(codice)
         ):
