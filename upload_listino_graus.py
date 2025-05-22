@@ -32,17 +32,21 @@ if uploaded_file and data_listino:
         codice = row[8]
 
         if pd.notna(descr) and pd.notna(prezzo) and pd.notna(codice):
-            descrizione = f"{produttore_corrente} {str(descr).strip()}"
-            note = f"Codice: {str(codice).strip()}"
+            try:
+                prezzo_float = float(prezzo)
+                descrizione = f"{produttore_corrente} {str(descr).strip()}"
+                note = f"Codice: {str(codice).strip()}"
 
-            rows.append({
-                "fornitore": fornitore,
-                "descrizione_prodotto": descrizione,
-                "prezzo": float(prezzo),
-                "note": note,
-                "data_listino": data_listino.isoformat(),
-                "nome_file": nome_file
-            })
+                rows.append({
+                    "fornitore": fornitore,
+                    "descrizione_prodotto": descrizione,
+                    "prezzo": prezzo_float,
+                    "note": note,
+                    "data_listino": data_listino.isoformat(),
+                    "nome_file": nome_file
+                })
+            except ValueError:
+                continue
 
     df_out = pd.DataFrame(rows)
     st.success(f"✅ Trovati {len(df_out)} prodotti.")
