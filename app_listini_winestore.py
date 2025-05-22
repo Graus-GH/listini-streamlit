@@ -34,24 +34,27 @@ if uploaded_file and data_listino:
         formato = str(row.get("Unnamed: 1", "")).strip()
         annata_raw = row.get("Unnamed: 2", "")
         annata = str(annata_raw).strip() if pd.notna(annata_raw) else ""
-        prezzo_raw = str(row.get("Unnamed: 3", "")).strip()
+        prezzo_2 = str(row.get("Unnamed: 2", "")).strip()
+        prezzo_3 = str(row.get("Unnamed: 3", "")).strip()
 
-        # Estrai solo annate che sono numeri a 4 cifre, plausibili (es. 1980-2030)
+        prezzo_raw = prezzo_3 if re.search(r"\d", prezzo_3) else prezzo_2
+        prezzo = re.sub(r"[€\s]", "", prezzo_raw).replace(",", ".")
+
+        # Validazione annata (solo se 4 cifre plausibili)
         annata_valida = re.match(r"^(19|20)\d{2}$", annata)
         annata_finale = annata if annata_valida else ""
 
-        # Filtro per righe con codice + descrizione e prezzo numerico
-        if re.match(r"^\d{5,}\s+.+", riga) and re.search(r"\d", prezzo_raw):
-            descr = re.sub(r"^\d{5,}\s+", "", riga)
+        # Nuovo match: qualsiasi stringa che inizia con almeno 4 cifre (anche attaccate)
+        if re.match(r"^\d{4,}", riga) and re.search(r"\d", prezzo):
+            descr = re.sub(r"^\d{4,}", "", riga).strip()
             descrizione_finale = f"{descr} {formato}".strip()
             if annata_finale:
                 descrizione_finale += f" {annata_finale}"
 
-            prezzo = re.sub(r"[€\s]", "", prezzo_raw).replace(",", ".")
             try:
                 prezzo_float = float(prezzo)
                 if not (0.5 <= prezzo_float <= 1000):
-                    continue  # filtra prezzi irrealistici
+                    continue
             except:
                 continue
 
