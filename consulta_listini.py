@@ -8,20 +8,21 @@ from collections import Counter
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Consulta Listini (interattivo)", layout="wide")
 
-st.title("📊 Consulta Listini Caricati")
-
-# Logo in alto a destra
+# Logo sopra al titolo
 st.markdown("""
-    <div style="position: relative;">
+    <div style="text-align: right; margin-bottom: -10px;">
         <img src="https://images.squarespace-cdn.com/content/v1/663dbdc9ee50c97d394658a4/d630ab5c-24ad-4c20-af78-d18744394601/New+Project+%2825%29.png?format=1500w"
-             style="position: absolute; top: 0; right: 0; height: 60px; margin: 0 0 10px 10px;">
+             style="height: 60px;">
     </div>
 """, unsafe_allow_html=True)
+
+# Titolo ridotto
+st.markdown("<h3>📊 Consulta Listini Caricati</h3>", unsafe_allow_html=True)
 
 # Recupera dati da Supabase
 data = []
@@ -75,21 +76,26 @@ def contiene_parole(row, parole):
 if parole:
     df_filtrato = df_filtrato[df_filtrato.apply(lambda row: contiene_parole(row, parole), axis=1)]
 
-# Calcolo parole più frequenti
-if not df_filtrato.empty:
-    all_text = " ".join(" ".join(str(val).lower() for val in row) for _, row in df_filtrato.iterrows())
-    all_words = re.findall(r'\b\w+\b', all_text)
-    common_words = Counter(all_words).most_common(25)
+# Calcolo parole più frequenti solo da 'descrizione_prodotto'
+if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
+    descrizioni = df_filtrato["descrizione_prodotto"].astype(str).str.lower().tolist()
+    testo = " ".join(descrizioni)
+    parole_grezze = re.findall(r'\b\w+\b', testo)
+    parole_filtrate = [p for p in parole_grezze if len(p) > 1 and not p.isnumeric()]
+    comuni = Counter(parole_filtrate).most_common(25)
 
     st.sidebar.markdown("### 🏷️ Parole più frequenti")
-    for word, count in common_words:
-        st.sidebar.markdown(f"<span style='background-color:#005caa; color:white; padding:3px 8px; border-radius:12px; margin:2px; display:inline-block'>{word} ({count})</span>", unsafe_allow_html=True)
+    tag_html = "<div style='display: flex; flex-wrap: wrap; gap: 6px;'>"
+    for parola, count in comuni:
+        tag_html += f"<span style='background-color:#005caa; color:white; padding:4px 10px; border-radius:16px; font-size:13px;'>{parola} ({count})</span>"
+    tag_html += "</div>"
+    st.sidebar.markdown(tag_html, unsafe_allow_html=True)
 
 # Paginazione
 offset = (page_number - 1) * page_size
 df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
-st.markdown(f"### ✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali")
+st.markdown(f"<h5>✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali</h5>", unsafe_allow_html=True)
 
 # Colonne visibili
 colonne_base = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
@@ -143,7 +149,7 @@ def build_custom_html_table(df):
         </table>
     """
 
-# CSS tabella
+# CSS tabella e tag fornitori
 st.markdown("""
     <style>
     .styled-table {
@@ -161,6 +167,12 @@ st.markdown("""
     .styled-table th {
         background-color: #005caa;
         color: white;
+    }
+    .stMultiSelect [data-baseweb="tag"] {
+        background-color: #005caa !important;
+    }
+    .stMultiSelect [data-baseweb="tag"] span {
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
