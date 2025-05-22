@@ -85,12 +85,32 @@ if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
     parole_filtrate = [p for p in parole_grezze if len(p) > 1 and not p.isnumeric()]
     comuni = Counter(parole_filtrate).most_common(25)
 
-    st.sidebar.markdown("### 🏷️ Parole più frequenti")
-    tag_html = "<div style='display: flex; flex-wrap: wrap; gap: 6px;'>"
-    for parola, count in comuni:
-        tag_html += f"<span style='background-color:#005caa; color:white; padding:4px 10px; border-radius:16px; font-size:13px;'>{parola} ({count})</span>"
-    tag_html += "</div>"
-    st.sidebar.markdown(tag_html, unsafe_allow_html=True)
+from urllib.parse import quote
+
+st.sidebar.markdown("### 🏷️ Parole più frequenti")
+
+query_params = st.query_params
+search_text_current = query_params.get("search", search_text)
+
+def aggiorna_query(nuova_parola):
+    # Aggiungi la parola se non già presente
+    parole_attuali = search_text_current.split()
+    if nuova_parola not in parole_attuali:
+        nuovo_testo = search_text_current + " " + nuova_parola
+        st.query_params["search"] = nuovo_testo.strip()
+
+tag_html = "<div style='display: flex; flex-wrap: wrap; gap: 6px;'>"
+for parola, count in comuni:
+    url = f"?search={quote((search_text_current + ' ' + parola).strip())}"
+    tag_html += f"""
+        <a href="{url}" style="text-decoration: none;">
+            <span style='background-color:#005caa; color:white; padding:4px 10px; border-radius:16px; font-size:13px; display:inline-block;'>{parola} ({count})</span>
+        </a>
+    """
+tag_html += "</div>"
+
+st.sidebar.markdown(tag_html, unsafe_allow_html=True)
+
 
 # Paginazione
 offset = (page_number - 1) * page_size
