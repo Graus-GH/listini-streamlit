@@ -31,7 +31,14 @@ if uploaded_file and data_listino:
         prezzo = row[7]
         codice = row[8]
 
-        if pd.notna(descr) and pd.notna(prezzo) and pd.notna(codice):
+        if (
+            pd.notna(descr) and
+            isinstance(descr, str) and
+            "PREZZO" not in descr.upper() and
+            "SINGOLA" not in descr.upper() and
+            pd.notna(prezzo) and
+            pd.notna(codice)
+        ):
             try:
                 prezzo_float = float(prezzo)
                 descrizione = f"{produttore_corrente} {str(descr).strip()}"
