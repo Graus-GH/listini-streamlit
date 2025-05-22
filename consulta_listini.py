@@ -112,7 +112,28 @@ if parole:
         for col in df_display.columns:
             df_display.at[idx, col] = evidenzia_html(row[col], parole, col, fornitore=row["fornitore"])
 
-# Stile coerente con barra laterale
+# Costruzione tabella HTML personalizzata
+def build_custom_html_table(df):
+    headers = "".join(f"<th>{col}</th>" for col in df.columns)
+    rows = ""
+    for _, row in df.iterrows():
+        is_graus = "graus" in str(row["fornitore"]).lower()
+        row_html = "<tr>"
+        for col in df.columns:
+            val = row[col]
+            style = ' style="text-align:center;"' if col == "prezzo" else ""
+            cell_content = f"<strong>{val}</strong>" if is_graus else val
+            row_html += f"<td{style}>{cell_content}</td>"
+        row_html += "</tr>"
+        rows += row_html
+    return f"""
+        <table class='styled-table'>
+            <thead><tr>{headers}</tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+    """
+
+# CSS coerente con sidebar + styling
 st.markdown("""
     <style>
     .styled-table {
@@ -134,8 +155,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Mostra tabella HTML
-html_table = df_display.to_html(escape=False, index=False, classes='styled-table')
+html_table = build_custom_html_table(df_display)
 st.markdown(html_table, unsafe_allow_html=True)
 
 # Download Excel pagina
