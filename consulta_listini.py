@@ -111,6 +111,9 @@ tag_html += "</div>"
 
 st.sidebar.markdown(tag_html, unsafe_allow_html=True)
 
+# Imposta il valore del campo di testo libero in base alla query param
+search_text = st.text_input("Testo libero (prodotto, note...)", value=query_params.get("search", ""))
+
 
 # Paginazione
 offset = (page_number - 1) * page_size
