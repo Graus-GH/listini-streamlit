@@ -18,13 +18,16 @@ data_listino = st.date_input("Data di riferimento del listino")
 
 if uploaded_file and data_listino:
     nome_file = uploaded_file.name
-    df = pd.read_csv(uploaded_file)
+    df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='utf-8')
 
     fornitore = "Winestore"
     rows = []
 
-    # Trova dinamicamente la colonna che contiene l'articolo (es. codice + descrizione)
-    colonna_descrizione = next((col for col in df.columns if "Artikel" in str(df[col].iloc[1])), df.columns[0])
+    # Trova dinamicamente la colonna con 'Artikel'
+    colonna_descrizione = next(
+        (col for col in df.columns if len(df) > 1 and isinstance(df[col].iloc[1], str) and "Artikel" in df[col].iloc[1]),
+        df.columns[0]
+    )
 
     for _, row in df.iterrows():
         riga = str(row.get(colonna_descrizione, "")).strip()
@@ -33,17 +36,24 @@ if uploaded_file and data_listino:
         annata = str(annata_raw).strip() if pd.notna(annata_raw) else ""
         prezzo_raw = str(row.get("Unnamed: 3", "")).strip()
 
+        # Estrai solo annate che sono numeri a 4 cifre, plausibili (es. 1980-2030)
+        annata_valida = re.match(r"^(19|20)\d{2}$", annata)
+        annata_finale = annata if annata_valida else ""
+
+        # Filtro per righe con codice + descrizione e prezzo numerico
         if re.match(r"^\d{5,}\s+.+", riga) and re.search(r"\d", prezzo_raw):
             descr = re.sub(r"^\d{5,}\s+", "", riga)
             descrizione_finale = f"{descr} {formato}".strip()
-            if annata and annata.lower() != "nan":
-                descrizione_finale += f" {annata}"
+            if annata_finale:
+                descrizione_finale += f" {annata_finale}"
 
             prezzo = re.sub(r"[€\s]", "", prezzo_raw).replace(",", ".")
             try:
                 prezzo_float = float(prezzo)
+                if not (0.5 <= prezzo_float <= 1000):
+                    continue  # filtra prezzi irrealistici
             except:
-                prezzo_float = ""
+                continue
 
             rows.append({
                 "fornitore": fornitore,
