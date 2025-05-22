@@ -44,10 +44,10 @@ if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
     st.stop()
 
-# Sidebar - Paginazione e filtri
+# Sidebar - Filtri e ricerca
 page_size = 500
 total_pages = math.ceil(len(df_all) / page_size)
-page_number = st.sidebar.number_input("📄 Pagina", min_value=1, max_value=total_pages, value=1, step=1)
+page_number = st.sidebar.number_input("📄 Pagina", 1, total_pages, 1)
 
 with st.sidebar:
     st.header("🔍 Filtri")
@@ -58,13 +58,16 @@ with st.sidebar:
     date_max = pd.to_datetime(df_all["data_listino"]).max()
     date_range = st.date_input("Intervallo data listino", [date_min, date_max])
 
-    # Campo di testo libero con session state
     if 'search_text' not in st.session_state:
         st.session_state.search_text = ""
+
+    if st.button("🗑️ Rimuovi tutte le parole"):
+        st.session_state.search_text = ""
+
     search_text = st.text_input("Testo libero (prodotto, note...)", value=st.session_state.search_text)
     st.session_state.search_text = search_text
 
-# Filtraggio
+# Filtro dati
 df_filtrato = df_all[
     df_all["fornitore"].isin(fornitore_sel) &
     (pd.to_datetime(df_all["data_listino"]) >= pd.to_datetime(date_range[0])) &
@@ -80,7 +83,7 @@ def contiene_parole(row, parole):
 if parole:
     df_filtrato = df_filtrato[df_filtrato.apply(lambda row: contiene_parole(row, parole), axis=1)]
 
-# Calcolo parole più frequenti solo da 'descrizione_prodotto'
+# Parole più frequenti da descrizione_prodotto
 if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
     descrizioni = df_filtrato["descrizione_prodotto"].astype(str).str.lower().tolist()
     testo = " ".join(descrizioni)
@@ -89,27 +92,37 @@ if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
     comuni = Counter(parole_filtrate).most_common(30)
 
     st.sidebar.markdown("### 🏷️ Le 30 parole più frequenti")
-    tag_container = st.container()
-    with tag_container:
-        cols = st.columns(5)
-        for i, (parola, count) in enumerate(comuni):
-            col = cols[i % 5]
-            with col:
-                st.markdown(
-                    f"<span style='background-color:#005caa; color:white; padding:4px 10px; border-radius:16px; font-size:13px;'>{parola} ({count})</span>",
-                    unsafe_allow_html=True
-                )
-                if st.button("+", key=f"tag_{parola}", help=f"Aggiungi '{parola}'"):
-                    if parola not in st.session_state.search_text.split():
-                        st.session_state.search_text += f" {parola}"
+    tag_html = "<div style='display: flex; flex-wrap: wrap; gap: 8px;'>"
+    for parola, count in comuni:
+        tag_html += f'''
+        <form action="" method="get">
+            <button name="tag_add" value="{parola}" style="
+                background-color:#005caa;
+                color:white;
+                border:none;
+                border-radius:16px;
+                padding:4px 10px;
+                font-size:13px;
+                cursor:pointer;
+            ">+ {parola} ({count})</button>
+        </form>
+        '''
+    tag_html += "</div>"
+    st.sidebar.markdown(tag_html, unsafe_allow_html=True)
 
-# Paginazione
+    tag_clicked = st.experimental_get_query_params().get("tag_add", [])
+    if tag_clicked:
+        tag = tag_clicked[0]
+        if tag not in st.session_state.search_text.split():
+            st.session_state.search_text += f" {tag}"
+        st.experimental_set_query_params()
+
+# Paginazione e visualizzazione
 offset = (page_number - 1) * page_size
 df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
 st.markdown(f"<h5>✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali</h5>", unsafe_allow_html=True)
 
-# Colonne visibili
 colonne_base = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
 if "prezzo" in colonne_base and "descrizione_prodotto" in colonne_base:
     colonne_base.remove("prezzo")
@@ -117,7 +130,7 @@ if "prezzo" in colonne_base and "descrizione_prodotto" in colonne_base:
 
 df_display = df_pagina[colonne_base].copy()
 
-# Favicon accanto a GRAUS
+# Logo accanto a GRAUS
 favicon_html = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
 df_display["fornitore"] = df_display["fornitore"].apply(
     lambda x: f'{x}{favicon_html}' if str(x).upper() == "GRAUS" else x
@@ -137,7 +150,7 @@ if parole:
         for col in df_display.columns:
             df_display.at[idx, col] = evidenzia_html(row[col], parole, col, fornitore=row["fornitore"])
 
-# Costruzione tabella HTML
+# Tabella HTML
 def build_custom_html_table(df):
     headers = "".join(
         f"<th style='text-align:center'>{col}</th>" if col == "prezzo" else f"<th>{col}</th>"
@@ -154,14 +167,8 @@ def build_custom_html_table(df):
             row_html += f"<td{style}>{cell_content}</td>"
         row_html += "</tr>"
         rows += row_html
-    return f"""
-        <table class='styled-table'>
-            <thead><tr>{headers}</tr></thead>
-            <tbody>{rows}</tbody>
-        </table>
-    """
+    return f"<table class='styled-table'><thead><tr>{headers}</tr></thead><tbody>{rows}</tbody></table>"
 
-# CSS tabella e tag fornitori
 st.markdown("""
     <style>
     .styled-table {
@@ -189,30 +196,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Mostra tabella
-html_table = build_custom_html_table(df_display)
-st.markdown(html_table, unsafe_allow_html=True)
+st.markdown(build_custom_html_table(df_display), unsafe_allow_html=True)
 
-# Download Excel pagina
+# Download Excel
 if not df_pagina.empty:
     buffer = io.BytesIO()
     df_pagina.to_excel(buffer, index=False, engine='openpyxl')
     buffer.seek(0)
-    st.download_button(
-        label="📥 Scarica solo questa pagina",
-        data=buffer,
-        file_name=f"listini_pagina_{page_number}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.download_button("📥 Scarica solo questa pagina", buffer, f"listini_pagina_{page_number}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Download Excel completo filtrato
 if not df_filtrato.empty:
     all_buffer = io.BytesIO()
     df_filtrato.to_excel(all_buffer, index=False, engine='openpyxl')
     all_buffer.seek(0)
-    st.download_button(
-        label="📥 Scarica tutti i risultati filtrati",
-        data=all_buffer,
-        file_name="listini_filtrati_completo.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.download_button("📥 Scarica tutti i risultati filtrati", all_buffer, "listini_filtrati_completo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
