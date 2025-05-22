@@ -3,6 +3,7 @@ import pandas as pd
 from supabase import create_client, Client
 import io
 import math
+import re
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -94,34 +95,28 @@ df_display["fornitore"] = df_display["fornitore"].apply(
     lambda x: f'{x}{favicon_html}' if str(x).upper() == "GRAUS" else x
 )
 
-# Funzione per evidenziare le parole
-import re
-
+# Funzione per evidenziare parole (case-insensitive)
 def evidenzia_html(val, parole, colname, fornitore=None):
     val_str = str(val)
     colore = "yellow"
     if "graus" in str(fornitore).lower():
-        colore = "#d0ebff"  # blu chiaro
-
+        colore = "#d0ebff"
     for parola in parole:
         pattern = re.compile(re.escape(parola), re.IGNORECASE)
-        val_str = pattern.sub(
-            lambda m: f'<mark style="background-color:{colore}">{m.group(0)}</mark>',
-            val_str
-        )
+        val_str = pattern.sub(lambda m: f'<mark style="background-color:{colore}">{m.group(0)}</mark>', val_str)
     return val_str
 
-# Applica evidenziazione cella per cella
+# Applica evidenziazione
 if parole:
     for idx, row in df_display.iterrows():
         for col in df_display.columns:
             df_display.at[idx, col] = evidenzia_html(row[col], parole, col, fornitore=row["fornitore"])
 
-# Stile tabella HTML
+# Stile coerente con barra laterale
 st.markdown("""
     <style>
     .styled-table {
-        font-family: Courier, monospace;
+        font-family: "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
         border-collapse: collapse;
         width: 100%;
     }
@@ -139,7 +134,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Costruzione HTML
+# Mostra tabella HTML
 html_table = df_display.to_html(escape=False, index=False, classes='styled-table')
 st.markdown(html_table, unsafe_allow_html=True)
 
