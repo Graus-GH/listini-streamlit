@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import io
 from datetime import datetime
 from supabase import create_client, Client
 
@@ -23,12 +22,17 @@ if uploaded_file and data_listino:
     rows = []
     produttore_corrente = ""
 
-    for i, row in df.iterrows():
+    i = 0
+    while i < len(df):
+        row = df.iloc[i]
+
+        # Se troviamo un marker #ind* cerchiamo il produttore nella riga successiva, colonna 1
         if isinstance(row[0], str) and "#ind" in row[0]:
-            if isinstance(row[1], str) and row[1].strip() != "":
-                produttore_corrente = row[1].strip()
-            elif isinstance(row[2], str):
-                produttore_corrente = row[2].strip()
+            if i + 1 < len(df):
+                next_row = df.iloc[i + 1]
+                if isinstance(next_row[1], str):
+                    produttore_corrente = next_row[1].strip()
+            i += 1
             continue
 
         descr = row[5]
@@ -47,6 +51,8 @@ if uploaded_file and data_listino:
                 "data_listino": data_listino.isoformat(),
                 "nome_file": nome_file
             })
+
+        i += 1
 
     df_out = pd.DataFrame(rows)
     st.success(f"✅ Trovati {len(df_out)} prodotti.")
