@@ -50,7 +50,8 @@ if uploaded_file and data_listino:
                     formato = row[1].strip() if len(row) > 1 else ""
                     prezzo_raw = row[2].strip() if len(row) > 2 else ""
                     prezzo = prezzo_raw.replace("€", "").replace(".", "").replace(",", ".").strip() if "€" in prezzo_raw or re.search(r"\d+,\d{2}", prezzo_raw) else ""
-                    note = estrai_note(" ".join(row))
+                    note = estrai_note(" ".join([str(cell) if cell else "" for cell in row]))
+
                     annata = estrai_annata(descrizione)
 
                     prodotti.append({
