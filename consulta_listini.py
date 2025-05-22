@@ -107,11 +107,21 @@ if "prezzo" in colonne_base and "descrizione_prodotto" in colonne_base:
     colonne_base.insert(colonne_base.index("descrizione_prodotto"), "prezzo")
 df_display = df_pagina[colonne_base].copy()
 
-# Favicon per Graus
-favicon_html = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
-df_display["fornitore"] = df_display["fornitore"].apply(
-    lambda x: f'{x}{favicon_html}' if str(x).upper() == "GRAUS" else x
-)
+# Favicon per Fornitori
+def aggiungi_favicon(fornitore):
+    nome = str(fornitore).upper()
+    if nome == "GRAUS":
+        icona = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
+    elif nome == "VINUM":
+        icona = '<img src="https://vinum.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
+    elif nome == "WINESTORE":
+        icona = '<img src="https://weindiele.com/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
+    else:
+        icona = ''
+    return f"{fornitore}{icona}"
+
+df_display["fornitore"] = df_display["fornitore"].apply(aggiungi_favicon)
+
 
 # Evidenzia parole ricercate
 def evidenzia_html(val, parole, fornitore=None):
