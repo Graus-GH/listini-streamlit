@@ -58,7 +58,11 @@ with st.sidebar:
     date_max = pd.to_datetime(df_all["data_listino"]).max()
     date_range = st.date_input("Intervallo data listino", [date_min, date_max])
 
-    search_text = st.text_input("Testo libero (prodotto, note...)")
+    # Campo di testo libero con session state
+    if 'search_text' not in st.session_state:
+        st.session_state.search_text = ""
+    search_text = st.text_input("Testo libero (prodotto, note...)", value=st.session_state.search_text)
+    st.session_state.search_text = search_text
 
 # Filtraggio
 df_filtrato = df_all[
@@ -82,14 +86,22 @@ if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
     testo = " ".join(descrizioni)
     parole_grezze = re.findall(r'\b\w+\b', testo)
     parole_filtrate = [p for p in parole_grezze if len(p) > 1 and not p.isnumeric()]
-    comuni = Counter(parole_filtrate).most_common(25)
+    comuni = Counter(parole_filtrate).most_common(30)
 
-    st.sidebar.markdown("### 🏷️ Parole più frequenti")
-    tag_html = "<div style='display: flex; flex-wrap: wrap; gap: 6px;'>"
-    for parola, count in comuni:
-        tag_html += f"<span style='background-color:#005caa; color:white; padding:4px 10px; border-radius:16px; font-size:13px;'>{parola} ({count})</span>"
-    tag_html += "</div>"
-    st.sidebar.markdown(tag_html, unsafe_allow_html=True)
+    st.sidebar.markdown("### 🏷️ Le 30 parole più frequenti")
+    tag_container = st.container()
+    with tag_container:
+        cols = st.columns(5)
+        for i, (parola, count) in enumerate(comuni):
+            col = cols[i % 5]
+            with col:
+                st.markdown(
+                    f"<span style='background-color:#005caa; color:white; padding:4px 10px; border-radius:16px; font-size:13px;'>{parola} ({count})</span>",
+                    unsafe_allow_html=True
+                )
+                if st.button("+", key=f"tag_{parola}", help=f"Aggiungi '{parola}'"):
+                    if parola not in st.session_state.search_text.split():
+                        st.session_state.search_text += f" {parola}"
 
 # Paginazione
 offset = (page_number - 1) * page_size
