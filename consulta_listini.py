@@ -77,9 +77,16 @@ df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
 st.markdown(f"### ✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali")
 
-# Escludi colonne non richieste
-colonne_da_mostrare = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
-df_display = df_pagina[colonne_da_mostrare].copy()
+# Escludi colonne non richieste e rioridina
+colonne_base = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
+
+# Sposta 'prezzo' prima di 'descrizione_prodotto'
+if "prezzo" in colonne_base and "descrizione_prodotto" in colonne_base:
+    colonne_base.remove("prezzo")
+    insert_idx = colonne_base.index("descrizione_prodotto")
+    colonne_base.insert(insert_idx, "prezzo")
+
+df_display = df_pagina[colonne_base].copy()
 
 # Inserisci favicon accanto a GRAUS
 favicon_html = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
