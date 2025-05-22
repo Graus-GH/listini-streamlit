@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pdfplumber
 import pandas as pd
@@ -18,51 +17,49 @@ st.title("📦 Estrazione Listini PDF - Fornitore VINUM")
 uploaded_file = st.file_uploader("Carica un file PDF", type="pdf")
 data_listino = st.date_input("Data a cui si riferisce il listino")
 
+PAROLE_NOTE = ["BIO", "Piwi", "limitiert", "auf Anfrage", "Restmenge"]
+
 def estrai_note(testo):
-    note_trovate = []
-    parole_chiave = ["BIO", "Piwi", "limitiert", "auf Anfrage", "Restmenge"]
-    for parola in parole_chiave:
-        if parola.lower() in testo.lower():
-            note_trovate.append(parola)
-    return ", ".join(note_trovate)
+    return ", ".join([n for n in PAROLE_NOTE if n.lower() in testo.lower()])
+
+def estrai_prezzo(testo):
+    match = re.search(r"(\d{1,3}(?:\.\d{3})*,\d{2})", testo)
+    return match.group(1).replace(".", "").replace(",", ".") if match else None
 
 if uploaded_file and data_listino:
     nome_file = uploaded_file.name
     fornitore = "VINUM"
     rows = []
+    current_producer = ""
 
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
-        current_producer = ""
         for page in pdf.pages:
-            text = page.extract_text()
-            if not text:
-                continue
+            lines = page.extract_text().split('\n')
+            buffer = []
 
-            lines = text.split('\n')
             for line in lines:
                 line = line.strip()
-
-                # Produttore in MAIUSCOLO
-                if line.isupper() and len(line.split()) <= 4:
+                # Nuovo produttore?
+                if line.isupper() and 1 <= len(line.split()) <= 5:
                     current_producer = line
                     continue
 
-                # Cerca righe con prezzo o indicazioni alternative
-                if "€" in line or any(k in line for k in ["auf Anfrage", "Restmenge"]):
-                    prezzo_match = re.search(r"(\d{1,3},\d{2})\s*€", line)
-                    prezzo = prezzo_match.group(1).replace(",", ".") if prezzo_match else None
+                # Righe vuote = fine blocco prodotto
+                if not line:
+                    buffer = []
+                    continue
 
-                    # Note rilevanti
-                    note = estrai_note(line)
+                # Accoda linee
+                buffer.append(line)
+                full_line = " ".join(buffer)
 
-                    # Pulizia descrizione
-                    line_cleaned = line
-                    if prezzo_match:
-                        line_cleaned = line_cleaned.replace(prezzo_match.group(0), "")
-                    line_cleaned = line_cleaned.replace("€", "").replace("auf Anfrage", "").replace("Restmenge", "").strip()
-                    descrizione_prodotto = f"{current_producer} - {line_cleaned}"
+                # Se trovi prezzo o nota chiave, è fine del blocco
+                if re.search(r"\d{1,3}(?:\.\d{3})*,\d{2}", full_line) or any(k in full_line for k in PAROLE_NOTE):
+                    prezzo = estrai_prezzo(full_line)
+                    note = estrai_note(full_line)
+                    descrizione = re.sub(r"(\d{1,3}(?:\.\d{3})*,\d{2})|€|auf Anfrage|Restmenge|limitiert|BIO|Piwi", "", full_line, flags=re.IGNORECASE).strip()
+                    descrizione_prodotto = f"{current_producer} - {descrizione}"
 
-                    # Se prezzo è mancante, usa la nota principale
                     prezzo_finale = prezzo if prezzo else note if "auf Anfrage" in note or "Restmenge" in note else ""
 
                     rows.append({
@@ -73,6 +70,8 @@ if uploaded_file and data_listino:
                         "data_listino": data_listino.isoformat(),
                         "nome_file": nome_file
                     })
+
+                    buffer = []  # reset
 
     df = pd.DataFrame(rows)
     st.success(f"✅ Trovati {len(df)} prodotti nel file.")
