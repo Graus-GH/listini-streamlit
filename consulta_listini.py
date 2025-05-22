@@ -45,16 +45,6 @@ if df_all.empty:
     st.stop()
 
 # Sidebar - Paginazione e filtri
-
-# Logo sopra al titolo
-st.markdown("""
-    <div style="text-align: right; margin-bottom: -10px;">
-        <img src="https://images.squarespace-cdn.com/content/v1/663dbdc9ee50c97d394658a4/d630ab5c-24ad-4c20-af78-d18744394601/New+Project+%2825%29.png?format=1500w"
-             style="height: 60px;">
-    </div>
-""", unsafe_allow_html=True)
-
-
 page_size = 500
 total_pages = math.ceil(len(df_all) / page_size)
 page_number = st.sidebar.number_input("📄 Pagina", min_value=1, max_value=total_pages, value=1, step=1)
