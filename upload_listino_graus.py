@@ -8,15 +8,15 @@ SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="Aggiorna da Google Sheets", layout="wide")
-st.title("📥 Aggiorna Listino da Google Sheets")
+st.set_page_config(page_title="Upload GRAUS Completo", layout="wide")
+st.title("📥 Carica file GRAUS completo")
 
+uploaded_file = st.file_uploader("Carica il file Excel", type=["xlsx"])
 data_listino = st.date_input("Data di riferimento del listino")
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/147uce6_Mj39nNxIjIWphu0Gt-CCpknDtzS0-MnR6XWo/export?format=csv&gid=953238786"
-
-if data_listino:
-    df = pd.read_csv(CSV_URL)
+if uploaded_file and data_listino:
+    nome_file = uploaded_file.name
+    df = pd.read_excel(uploaded_file, sheet_name=0, header=None)
 
     fornitore = "GRAUS"
     rows = []
@@ -38,7 +38,7 @@ if data_listino:
                 "prezzo": prezzo,
                 "note": note,
                 "data_listino": data_listino.isoformat(),
-                "nome_file": "GoogleSheet"
+                "nome_file": nome_file
             })
         except Exception:
             continue
