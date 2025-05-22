@@ -15,7 +15,7 @@ st.set_page_config(page_title="Consulta Listini (interattivo)", layout="wide")
 
 # Logo sopra al titolo
 st.markdown("""
-    <div style="text-align: right; margin-bottom: -10px;">
+    <div style="text-align: left; margin-bottom: -10px;">
         <img src="https://images.squarespace-cdn.com/content/v1/663dbdc9ee50c97d394658a4/d630ab5c-24ad-4c20-af78-d18744394601/New+Project+%2825%29.png?format=1500w"
              style="height: 60px;">
     </div>
