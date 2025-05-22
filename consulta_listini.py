@@ -10,7 +10,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Consulta Listini (interattivo)", layout="wide")
-st.title("📊 Consulta Listini Caricati (Tabella Dinamica)")
+st.title("📊 Consulta Listini Caricati")
 
 # Recupera TUTTE le righe
 data = []
@@ -95,19 +95,20 @@ df_display["fornitore"] = df_display["fornitore"].apply(
 )
 
 # Funzione per evidenziare le parole
+import re
+
 def evidenzia_html(val, parole, colname, fornitore=None):
     val_str = str(val)
     colore = "yellow"
     if "graus" in str(fornitore).lower():
         colore = "#d0ebff"  # blu chiaro
+
     for parola in parole:
-        if parola.lower() in val_str.lower():
-            val_str = val_str.replace(
-                parola, f'<mark style="background-color:{colore}">{parola}</mark>'
-            )
-            val_str = val_str.replace(
-                parola.capitalize(), f'<mark style="background-color:{colore}">{parola.capitalize()}</mark>'
-            )
+        pattern = re.compile(re.escape(parola), re.IGNORECASE)
+        val_str = pattern.sub(
+            lambda m: f'<mark style="background-color:{colore}">{m.group(0)}</mark>',
+            val_str
+        )
     return val_str
 
 # Applica evidenziazione cella per cella
