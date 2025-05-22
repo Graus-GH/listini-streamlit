@@ -1,14 +1,15 @@
 import streamlit as st
 import pandas as pd
+import re
+from datetime import datetime
+from collections import Counter
 from supabase import create_client, Client
 import io
 import math
-import re
-from collections import Counter
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Consulta Listini (interattivo)", layout="wide")
@@ -21,65 +22,65 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Titolo ridotto
 st.markdown("<h3>📊 Consulta Listini Caricati</h3>", unsafe_allow_html=True)
 
-# Recupera dati da Supabase
-data = []
-limit = 1000
-offset = 0
-while True:
-    resp = supabase.table("listini").select("*").range(offset, offset + limit - 1).execute()
-    batch = resp.data
-    if not batch:
-        break
-    data.extend(batch)
-    if len(batch) < limit:
-        break
-    offset += limit
+# Caching caricamento dati
+@st.cache_data
+def carica_dati_supabase():
+    data = []
+    limit = 1000
+    offset = 0
+    while True:
+        resp = supabase.table("listini").select("*").range(offset, offset + limit - 1).execute()
+        batch = resp.data
+        if not batch:
+            break
+        data.extend(batch)
+        if len(batch) < limit:
+            break
+        offset += limit
+    return pd.DataFrame(data)
 
-df_all = pd.DataFrame(data)
+df_all = carica_dati_supabase()
 
 if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
     st.stop()
 
-# Sidebar - Paginazione e filtri
+# Sidebar - Filtri
 page_size = 500
 total_pages = math.ceil(len(df_all) / page_size)
-page_number = st.sidebar.number_input("📄 Pagina", min_value=1, max_value=total_pages, value=1, step=1)
+page_number = st.sidebar.number_input("📄 Pagina", min_value=1, max_value=total_pages, value=1)
 
 with st.sidebar:
     st.header("🔍 Filtri")
-    fornitori = sorted(df_all["fornitore"].dropna().unique().tolist())
+    fornitori = sorted(df_all["fornitore"].dropna().unique())
     fornitore_sel = st.multiselect("Fornitore", fornitori, default=fornitori)
-
+    
     date_min = pd.to_datetime(df_all["data_listino"]).min()
     date_max = pd.to_datetime(df_all["data_listino"]).max()
     date_range = st.date_input("Intervallo data listino", [date_min, date_max])
 
     search_text = st.text_input("Testo libero (prodotto, note...)")
 
-# Filtraggio
+# Filtraggio iniziale
 df_filtrato = df_all[
     df_all["fornitore"].isin(fornitore_sel) &
     (pd.to_datetime(df_all["data_listino"]) >= pd.to_datetime(date_range[0])) &
     (pd.to_datetime(df_all["data_listino"]) <= pd.to_datetime(date_range[1]))
-]
+].copy()
 
+# Ricerca parole chiave più veloce
 parole = search_text.lower().split() if search_text else []
-
-def contiene_parole(row, parole):
-    testo = " ".join(str(val).lower() for val in row)
-    return all(p in testo for p in parole)
-
 if parole:
-    df_filtrato = df_filtrato[df_filtrato.apply(lambda row: contiene_parole(row, parole), axis=1)]
+    df_filtrato["testo_completo"] = df_filtrato.astype(str).agg(" ".join, axis=1).str.lower()
+    for parola in parole:
+        df_filtrato = df_filtrato[df_filtrato["testo_completo"].str.contains(parola, na=False)]
+    df_filtrato.drop(columns="testo_completo", inplace=True)
 
-# Calcolo parole più frequenti solo da 'descrizione_prodotto'
+# Calcolo parole più frequenti
 if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
-    descrizioni = df_filtrato["descrizione_prodotto"].astype(str).str.lower().tolist()
-    testo = " ".join(descrizioni)
+    testo = " ".join(df_filtrato["descrizione_prodotto"].dropna().str.lower())
     parole_grezze = re.findall(r'\b\w+\b', testo)
     parole_filtrate = [p for p in parole_grezze if len(p) > 1 and not p.isnumeric()]
     comuni = Counter(parole_filtrate).most_common(25)
@@ -97,22 +98,21 @@ df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
 st.markdown(f"<h5>✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali</h5>", unsafe_allow_html=True)
 
-# Colonne visibili
+# Ordine colonne
 colonne_base = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
 if "prezzo" in colonne_base and "descrizione_prodotto" in colonne_base:
     colonne_base.remove("prezzo")
     colonne_base.insert(colonne_base.index("descrizione_prodotto"), "prezzo")
-
 df_display = df_pagina[colonne_base].copy()
 
-# Favicon accanto a GRAUS
+# Favicon per Graus
 favicon_html = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
 df_display["fornitore"] = df_display["fornitore"].apply(
     lambda x: f'{x}{favicon_html}' if str(x).upper() == "GRAUS" else x
 )
 
-# Evidenziazione
-def evidenzia_html(val, parole, colname, fornitore=None):
+# Evidenzia parole ricercate
+def evidenzia_html(val, parole, fornitore=None):
     val_str = str(val)
     colore = "#d0ebff" if "graus" in str(fornitore).lower() else "yellow"
     for parola in parole:
@@ -121,9 +121,11 @@ def evidenzia_html(val, parole, colname, fornitore=None):
     return val_str
 
 if parole:
-    for idx, row in df_display.iterrows():
-        for col in df_display.columns:
-            df_display.at[idx, col] = evidenzia_html(row[col], parole, col, fornitore=row["fornitore"])
+    for col in df_display.columns:
+        df_display[col] = [
+            evidenzia_html(val, parole, fornitore=row["fornitore"])
+            for val, row in zip(df_display[col], df_pagina.to_dict("records"))
+        ]
 
 # Costruzione tabella HTML
 def build_custom_html_table(df):
@@ -149,7 +151,7 @@ def build_custom_html_table(df):
         </table>
     """
 
-# CSS tabella e tag fornitori
+# CSS tabella
 st.markdown("""
     <style>
     .styled-table {
@@ -177,30 +179,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Mostra tabella
-html_table = build_custom_html_table(df_display)
-st.markdown(html_table, unsafe_allow_html=True)
+# Tabella
+st.markdown(build_custom_html_table(df_display), unsafe_allow_html=True)
 
-# Download Excel pagina
+# Download Excel
 if not df_pagina.empty:
     buffer = io.BytesIO()
-    df_pagina.to_excel(buffer, index=False, engine='openpyxl')
+    df_pagina.to_excel(buffer, index=False, engine="openpyxl")
     buffer.seek(0)
-    st.download_button(
-        label="📥 Scarica solo questa pagina",
-        data=buffer,
-        file_name=f"listini_pagina_{page_number}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.download_button("📥 Scarica solo questa pagina", data=buffer, file_name="pagina.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Download Excel completo filtrato
 if not df_filtrato.empty:
     all_buffer = io.BytesIO()
-    df_filtrato.to_excel(all_buffer, index=False, engine='openpyxl')
+    df_filtrato.to_excel(all_buffer, index=False, engine="openpyxl")
     all_buffer.seek(0)
-    st.download_button(
-        label="📥 Scarica tutti i risultati filtrati",
-        data=all_buffer,
-        file_name="listini_filtrati_completo.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.download_button("📥 Scarica tutti i risultati filtrati", data=all_buffer, file_name="completo.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
