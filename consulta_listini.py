@@ -113,9 +113,9 @@ def aggiungi_favicon(fornitore):
     if nome == "GRAUS":
         icona = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
     elif nome == "VINUM":
-        icona = '<img src="https://vinum.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
+        icona = '<img src="https://vinum.it/wp-content/uploads/favicon-1.png" style="height:16px; vertical-align:middle; margin-left:4px;">'
     elif nome == "WINESTORE":
-        icona = '<img src="https://weindiele.com/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
+        icona = '<img src="https://weindiele.com/media/image/storage/opc/Slider/wine.png" style="height:16px; vertical-align:middle; margin-left:4px;">'
     else:
         icona = ''
     return f"{fornitore}{icona}"
