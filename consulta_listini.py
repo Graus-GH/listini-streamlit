@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
@@ -78,10 +77,65 @@ df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
 st.markdown(f"### ✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali")
 
-# Mostra tabella interattiva
-st.dataframe(df_pagina, use_container_width=True, height=800)
+# Escludi colonne non richieste
+colonne_da_mostrare = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
+df_display = df_pagina[colonne_da_mostrare].copy()
 
-# Download pagina corrente
+# Inserisci favicon accanto a GRAUS
+favicon_html = '<img src="https://www.graus.bz.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
+df_display["fornitore"] = df_display["fornitore"].apply(
+    lambda x: f'{x}{favicon_html}' if str(x).upper() == "GRAUS" else x
+)
+
+# Funzione per evidenziare le parole
+def evidenzia_html(val, parole, colname, fornitore=None):
+    val_str = str(val)
+    colore = "yellow"
+    if "graus" in str(fornitore).lower():
+        colore = "#d0ebff"  # blu chiaro
+    for parola in parole:
+        if parola.lower() in val_str.lower():
+            val_str = val_str.replace(
+                parola, f'<mark style="background-color:{colore}">{parola}</mark>'
+            )
+            val_str = val_str.replace(
+                parola.capitalize(), f'<mark style="background-color:{colore}">{parola.capitalize()}</mark>'
+            )
+    return val_str
+
+# Applica evidenziazione cella per cella
+if parole:
+    for idx, row in df_display.iterrows():
+        for col in df_display.columns:
+            df_display.at[idx, col] = evidenzia_html(row[col], parole, col, fornitore=row["fornitore"])
+
+# Stile tabella HTML
+st.markdown("""
+    <style>
+    .styled-table {
+        font-family: Courier, monospace;
+        border-collapse: collapse;
+        width: 100%;
+    }
+    .styled-table th, .styled-table td {
+        border: 1px solid #ddd;
+        padding: 6px;
+        text-align: left;
+        font-size: 14px;
+    }
+    .styled-table tr:nth-child(even){background-color: #f9f9f9;}
+    .styled-table th {
+        background-color: #4CAF50;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Costruzione HTML
+html_table = df_display.to_html(escape=False, index=False, classes='styled-table')
+st.markdown(html_table, unsafe_allow_html=True)
+
+# Download Excel pagina
 if not df_pagina.empty:
     buffer = io.BytesIO()
     df_pagina.to_excel(buffer, index=False, engine='openpyxl')
@@ -93,7 +147,7 @@ if not df_pagina.empty:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# Download tutti i risultati filtrati
+# Download Excel completo filtrato
 if not df_filtrato.empty:
     all_buffer = io.BytesIO()
     df_filtrato.to_excel(all_buffer, index=False, engine='openpyxl')
