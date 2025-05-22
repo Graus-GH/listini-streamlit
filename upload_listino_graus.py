@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import io
@@ -7,7 +6,7 @@ from supabase import create_client, Client
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Upload Excel GRAUS", layout="wide")
@@ -25,9 +24,11 @@ if uploaded_file and data_listino:
     produttore_corrente = ""
 
     for i, row in df.iterrows():
-        # Se troviamo #indVINI -> aggiornamento produttore
-        if isinstance(row[0], str) and "#indVINI" in row[0] and isinstance(row[2], str):
-            produttore_corrente = row[2].strip()
+        if isinstance(row[0], str) and "#ind" in row[0]:
+            if isinstance(row[1], str) and row[1].strip() != "":
+                produttore_corrente = row[1].strip()
+            elif isinstance(row[2], str):
+                produttore_corrente = row[2].strip()
             continue
 
         descr = row[5]
