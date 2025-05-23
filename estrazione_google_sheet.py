@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client, Client
+import re
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -17,6 +18,16 @@ st.title("📥 Estrazione automatica da Google Sheet")
 
 data_listino = st.date_input("Data di riferimento del listino")
 
+def pulisci_prezzo(val):
+    if pd.isna(val):
+        return None
+    val = str(val).replace(",", ".")
+    val = re.sub(r"[^\d.]", "", val)
+    try:
+        return int(float(val))
+    except:
+        return None
+
 if data_listino:
     try:
         df = pd.read_csv(CSV_URL, header=None)
@@ -30,10 +41,13 @@ if data_listino:
             if (pd.isna(row[3]) or str(row[3]).strip() == "") and (pd.isna(row[4]) or str(row[4]).strip() == ""):
                 continue
 
+            prezzo = pulisci_prezzo(row[8])
+            if prezzo is None:
+                continue
+
             try:
                 produttore = str(row[3]).replace("•", "").strip()
                 descrizione = f"{produttore}, {str(row[4]).strip()}"
-                prezzo = float(row[8])
                 codice = str(row[0]).strip()
                 note = f"Codice: {codice}"
 
