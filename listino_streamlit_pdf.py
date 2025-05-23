@@ -1,8 +1,7 @@
 
 import streamlit as st
 import pandas as pd
-from xhtml2pdf import pisa
-import tempfile
+import base64
 
 # URL CSV Google Sheets
 sheet_url = "https://docs.google.com/spreadsheets/d/147uce6_Mj39nNxIjIWphu0Gt-CCpknDtzS0-MnR6XWo/export?format=csv&gid=384822597"
@@ -64,13 +63,10 @@ for _, row in df.iterrows():
 
 html += "</table></div>"
 
-# Mostra in Streamlit
+# Mostra la tabella
 st.markdown(html, unsafe_allow_html=True)
 
-# Pulsante per salvare come PDF
-if st.button("📄 Scarica PDF"):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        pisa.CreatePDF(html, dest=tmp)
-        tmp_path = tmp.name
-    with open(tmp_path, "rb") as f:
-        st.download_button("Download PDF", data=f, file_name="listino_vini.pdf", mime="application/pdf")
+# Pulsante per salvare come HTML
+b64 = base64.b64encode(html.encode()).decode()
+href = f'<a href="data:text/html;base64,{b64}" download="listino.html">💾 Scarica come HTML (stampabile in PDF)</a>'
+st.markdown(href, unsafe_allow_html=True)
