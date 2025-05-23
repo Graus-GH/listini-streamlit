@@ -25,7 +25,9 @@ if data_listino:
         rows = []
 
         for i, row in df.iterrows():
-            if i == 0 or pd.isna(row[4]):
+            if i == 0:
+                continue
+            if (pd.isna(row[3]) or str(row[3]).strip() == "") and (pd.isna(row[4]) or str(row[4]).strip() == ""):
                 continue
 
             try:
