@@ -24,9 +24,15 @@ def pulisci_prezzo(val):
     val = str(val).replace(",", ".")
     val = re.sub(r"[^\d.]", "", val)
     try:
-        return int(float(val))
+        return round(float(val), 2)
     except:
         return None
+
+def pulisci_codice(val):
+    try:
+        return str(int(float(val)))
+    except:
+        return str(val).strip()
 
 if data_listino:
     try:
@@ -48,7 +54,7 @@ if data_listino:
             try:
                 produttore = str(row[3]).replace("•", "").strip()
                 descrizione = f"{produttore}, {str(row[4]).strip()}"
-                codice = str(row[0]).strip()
+                codice = pulisci_codice(row[0])
                 note = f"Codice: {codice}"
 
                 rows.append({
