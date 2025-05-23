@@ -41,27 +41,22 @@ if uploaded_file and data_listino:
             for line in lines:
                 line = line.strip()
 
-                # Produttore in MAIUSCOLO
                 if line.isupper() and len(line.split()) <= 4:
                     current_producer = line
                     continue
 
-                # Cerca righe con prezzo o indicazioni alternative
                 if "€" in line or any(k in line for k in ["auf Anfrage", "Restmenge"]):
-                    prezzo_match = re.search(r"(\d{1,3},\d{2})\s*€", line)
+                    prezzo_match = re.search(r"(\d{{1,3}},\d{{2}})\s*€", line)
                     prezzo = prezzo_match.group(1).replace(",", ".") if prezzo_match else None
 
-                    # Note rilevanti
                     note = estrai_note(line)
 
-                    # Pulizia descrizione
                     line_cleaned = line
                     if prezzo_match:
                         line_cleaned = line_cleaned.replace(prezzo_match.group(0), "")
                     line_cleaned = line_cleaned.replace("€", "").replace("auf Anfrage", "").replace("Restmenge", "").strip()
                     descrizione_prodotto = f"{current_producer} - {line_cleaned}"
 
-                    # Se prezzo è mancante, usa la nota principale
                     prezzo_finale = prezzo if prezzo else note if "auf Anfrage" in note or "Restmenge" in note else ""
 
                     rows.append({
@@ -78,6 +73,13 @@ if uploaded_file and data_listino:
     st.dataframe(df)
 
     if st.button("📤 Carica su Supabase"):
-        for r in rows:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        total = len(rows)
+        for i, r in enumerate(rows):
             supabase.table("listini").insert(r).execute()
+            progress_bar.progress((i + 1) / total)
+            status_text.text(f"Caricamento... {i + 1} di {total}")
         st.success("✅ Dati caricati con successo!")
+        progress_bar.empty()
+        status_text.empty()
