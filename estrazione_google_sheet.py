@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -9,7 +10,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # URL CSV del Google Sheet pubblico
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2AOWfYWrNy5DIDyYhEVPh9YcR9LqvWh4zazFlERZ_NaJ6dxMAOKYCI5BkNftjGcSOnp53L7cDPL5M/pub?gid=953238786&single=true&output=csv"
+CSV_URL = "https://docs.google.com/spreadsheets/d/147uce6_Mj39nNxIjIWphu0Gt-CCpknDtzS0-MnR6XWo/export?format=csv&gid=953238786"
 
 st.set_page_config(page_title="Listino GRAUS da Google Sheet", layout="wide")
 st.title("📥 Estrazione automatica da Google Sheet")
