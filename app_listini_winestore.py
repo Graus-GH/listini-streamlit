@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import re
@@ -72,6 +71,13 @@ if uploaded_file and data_listino:
     st.dataframe(df_out)
 
     if st.button("📤 Carica su Supabase"):
-        for r in rows:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        total = len(rows)
+        for i, r in enumerate(rows):
             supabase.table("listini").insert(r).execute()
+            progress_bar.progress((i + 1) / total)
+            status_text.text(f"Caricamento... {i + 1} di {total}")
         st.success("✅ Dati caricati con successo!")
+        progress_bar.empty()
+        status_text.empty()
