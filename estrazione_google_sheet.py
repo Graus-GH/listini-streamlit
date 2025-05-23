@@ -1,0 +1,58 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+from supabase import create_client, Client
+
+# CONFIGURAZIONE SUPABASE
+SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# URL CSV del Google Sheet pubblico
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2AOWfYWrNy5DIDyYhEVPh9YcR9LqvWh4zazFlERZ_NaJ6dxMAOKYCI5BkNftjGcSOnp53L7cDPL5M/pub?gid=953238786&single=true&output=csv"
+
+st.set_page_config(page_title="Listino GRAUS da Google Sheet", layout="wide")
+st.title("📥 Estrazione automatica da Google Sheet")
+
+data_listino = st.date_input("Data di riferimento del listino")
+
+if data_listino:
+    try:
+        df = pd.read_csv(CSV_URL, header=None)
+
+        fornitore = "GRAUS"
+        rows = []
+
+        for i, row in df.iterrows():
+            if i == 0 or pd.isna(row[4]):
+                continue
+
+            try:
+                produttore = str(row[3]).replace("•", "").strip()
+                descrizione = f"{produttore}, {str(row[4]).strip()}"
+                prezzo = float(row[8])
+                codice = str(row[0]).strip()
+                note = f"Codice: {codice}"
+
+                rows.append({
+                    "fornitore": fornitore,
+                    "descrizione_prodotto": descrizione,
+                    "prezzo": prezzo,
+                    "note": note,
+                    "data_listino": data_listino.isoformat(),
+                    "nome_file": "estrazione_google_sheet"
+                })
+            except Exception:
+                continue
+
+        df_out = pd.DataFrame(rows)
+        st.success(f"✅ Trovati {len(df_out)} prodotti.")
+        st.dataframe(df_out)
+
+        if st.button("📤 Carica su Supabase"):
+            for r in rows:
+                supabase.table("listini").insert(r).execute()
+            st.success("✅ Dati caricati con successo!")
+
+    except Exception as e:
+        st.error(f"Errore durante la lettura del foglio: {e}")
