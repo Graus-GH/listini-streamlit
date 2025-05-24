@@ -6,4 +6,3 @@ openpyxl
 pytesseract
 Pillow
 PyMuPDF
-pip install streamlit-auth0
