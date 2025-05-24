@@ -1,27 +1,3 @@
-from streamlit_auth0 import login_button
-
-# === CONFIGURAZIONE AUTH0 ===
-AUTH0_DOMAIN = "dev-wst2ot7yz4hr24d1.eu.auth0.com"
-AUTH0_CLIENT_ID = "bN5z3XqWcYTOz6ZcHaJGrRnHqI2plA0i"
-
-# === LOGIN ===
-user_info = login_button(
-    auth0_domain=AUTH0_DOMAIN,
-    client_id=AUTH0_CLIENT_ID,
-    redirect_uri=None  # Usa l'URL corrente (funziona su Streamlit Cloud)
-)
-
-if not user_info:
-    st.warning("🔐 Per accedere, effettua il login con il tuo account @graus.bz.it")
-    st.stop()
-
-# === Info utente ===
-email = user_info.get("email", "")
-name = user_info.get("name", "")
-
-
-
-
 import streamlit as st
 import pandas as pd
 import re
