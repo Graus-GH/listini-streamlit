@@ -81,6 +81,13 @@ if uploaded_file and data_listino:
     st.dataframe(df_out)
 
     if st.button("📤 Carica su Supabase"):
-        for r in prodotti:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        total = len(prodotti)
+        for i, r in enumerate(prodotti):
+            progress_bar.progress((i + 1) / total)
+            status_text.text(f"Caricamento... {i + 1} di {total}")
             supabase.table("listini").insert(r).execute()
-        st.success("✅ Dati caricati con successo!")
+                st.success("✅ Dati caricati con successo!")
+        progress_bar.empty()
+        status_text.empty()
