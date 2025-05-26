@@ -83,4 +83,6 @@ if uploaded_file and data_listino:
     if st.button("📤 Carica su Supabase"):
         for r in prodotti:
             supabase.table("listini").insert(r).execute()
+             progress_bar.progress((i + 1) / total)
+                status_text.text(f"Caricamento... {i + 1} di {total}")
         st.success("✅ Dati caricati con successo!")
