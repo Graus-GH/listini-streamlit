@@ -118,6 +118,8 @@ def aggiungi_favicon(fornitore):
         icona = '<img src="https://vinum.it/wp-content/uploads/favicon-1.png" style="height:16px; vertical-align:middle; margin-left:4px;">'
     elif nome == "WINESTORE":
         icona = '<img src="https://weindiele.com/media/image/storage/opc/Slider/wine.png" style="height:16px; vertical-align:middle; margin-left:4px;">'
+    elif nome == "HARPF":
+        icona = '<img src="https://harpf.it/favicon.ico" style="height:16px; vertical-align:middle; margin-left:4px;">'
     else:
         icona = ''
     return f"{fornitore}{icona}"
