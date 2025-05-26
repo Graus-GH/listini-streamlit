@@ -1,18 +1,13 @@
 import streamlit as st
 import streamlit_authenticator as stauth
-import pandas as pd
-import re
-from datetime import datetime
-from collections import Counter
-from supabase import create_client, Client
-import io
-import math
 
 # --- AUTENTICAZIONE ---
 names = ["Utente Graus"]
 usernames = ["utente@graus.bz.it"]
 passwords = ["provapassword"]
 
+# Conversione sicura a stringhe
+passwords = list(map(str, passwords))
 hashed_passwords = stauth.Hasher(passwords).generate()
 
 authenticator = stauth.Authenticate(
@@ -32,6 +27,11 @@ if authentication_status:
         st.stop()
     authenticator.logout("Logout", "sidebar")
     st.sidebar.success(f"Loggato come {username}")
+elif authentication_status is False:
+    st.error("Username o password errati")
+elif authentication_status is None:
+    st.info("Inserisci le credenziali per accedere")
+
 
 
 
