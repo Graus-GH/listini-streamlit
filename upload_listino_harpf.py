@@ -29,7 +29,6 @@ if uploaded_file and data_listino:
             lines = text.split("\n")
             for line in lines:
                 line = line.strip()
-
                 if re.search(r"\d{1,3},\d{2}\s?€", line):
                     match_prezzo = re.search(r"(\d{1,3},\d{2})\s?€", line)
                     prezzo = match_prezzo.group(1).replace(",", ".") if match_prezzo else ""
@@ -48,21 +47,19 @@ if uploaded_file and data_listino:
                     formato = formato_match.group(1).replace(",", ".") if formato_match else ""
                     formato_str = f"{formato} l" if formato else ""
 
-                    gradi_match = re.search(r"(\d{1,2}[.,]\d)\s?%", line_clean)
-                    gradi = gradi_match.group(1).replace(",", ".") + "%" if gradi_match else ""
+                    gradi_match = re.search(r"\b(\d{1,2})\b(?=\s*€|\s*$)", line_clean)
+                    gradi = gradi_match.group(1) + "%" if gradi_match else ""
 
                     descr = line_clean.strip()
 
-                    # Evita doppio formato
                     if formato and formato in descr:
                         descr = descr.replace(formato, "").strip()
 
-                    # Costruzione finale
                     extra = " ".join(x for x in [formato_str, gradi, annata] if x).strip()
                     if extra:
                         descr += f" {extra}"
 
-                    note_match = re.findall(r"\b(BIO|RISERVA|LIMITIERT|\d+\s*M\.|Holz|Edelstahl)\b", line, flags=re.IGNORECASE)
+                    note_match = re.findall(r"\b(BIO|RISERVA|LIMITIERT|\d+\s*M\.|Holz|Edelstahl|barrique|ciliegio|rovere)\b", line, flags=re.IGNORECASE)
                     note = ", ".join(note_match)
 
                     descrizione_finale = f"{produttore.upper()} {descr}".strip()
@@ -81,6 +78,13 @@ if uploaded_file and data_listino:
     st.dataframe(df_out)
 
     if st.button("📤 Carica su Supabase"):
-        for r in prodotti:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        total = len(prodotti)
+        for i, r in enumerate(prodotti):
             supabase.table("listini").insert(r).execute()
+            progress_bar.progress((i + 1) / total)
+            status_text.text(f"Caricamento... {i + 1} di {total}")
         st.success("✅ Dati caricati con successo!")
+        progress_bar.empty()
+        status_text.empty()
