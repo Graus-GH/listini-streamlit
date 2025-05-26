@@ -11,10 +11,10 @@ SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZreXZyc29pYW9hY2twaWpwcm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MTE3NjgsImV4cCI6MjA2MzM4Nzc2OH0.KX6KlwgKitJxBYwEIEXeG2_ErBvkGLkYyOoxiL7s-Gw"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="Upload Listino HARPF", layout="wide")
-st.title("📤 Carica PDF Listino HARPF")
+st.set_page_config(page_title="Upload Listino HARPF (Kod)", layout="wide")
+st.title("📤 Carica PDF Listino HARPF (estrazione Kod.)")
 
-uploaded_file = st.file_uploader("Carica il listino HARPF in formato PDF", type=["pdf"])
+uploaded_file = st.file_uploader("Carica il PDF HARPF", type=["pdf"])
 data_listino = st.date_input("Data di riferimento del listino")
 
 if uploaded_file and data_listino:
@@ -22,47 +22,55 @@ if uploaded_file and data_listino:
     prodotti = []
 
     with pdfplumber.open(uploaded_file) as pdf:
+        in_prodotti = False
         for page in pdf.pages:
             text = page.extract_text()
             if not text:
                 continue
             lines = text.split("\n")
+
             for line in lines:
                 line = line.strip()
-                if re.search(r"\d{1,3},\d{2}\s?€", line):
-                    match_prezzo = re.search(r"(\d{1,3},\d{2})\s?€", line)
+
+                # Attiva se trova la sezione "Kod."
+                if "Kod" in line:
+                    in_prodotti = True
+                    continue
+
+                # Se siamo nella sezione giusta e la riga inizia con codice numerico
+                if in_prodotti and re.match(r"^\d{4,6}\s", line) and "€" in line:
+                    # Estrai codice e contenuto
+                    match = re.match(r"^(\d{4,6})\s+(.*)", line)
+                    codice = match.group(1)
+                    contenuto = match.group(2)
+
+                    # Estrai prezzo
+                    match_prezzo = re.search(r"(\d{1,3},\d{2})\s?€", contenuto)
                     prezzo = match_prezzo.group(1).replace(",", ".") if match_prezzo else ""
-
-                    produttore_match = re.search(r"^(\d{4,6})\s+(.*?)\s{2,}", line)
-                    produttore = produttore_match.group(2).strip() if produttore_match else ""
-
-                    line_clean = re.sub(r"^\d{4,6}\s+", "", line)
                     if match_prezzo:
-                        line_clean = line_clean.replace(match_prezzo.group(0), "")
+                        contenuto = contenuto.replace(match_prezzo.group(0), "")
 
-                    annata_match = re.search(r"(19|20)\d{2}", line_clean)
-                    annata = annata_match.group(0) if annata_match else ""
+                    # Estrai gradazione (xx%)
+                    gradi = ""
+                    gradi_match = re.search(r"(\d{1,2}(?:[.,]\d)?)\s*%", contenuto)
+                    if gradi_match:
+                        gradi = gradi_match.group(1).replace(",", ".") + "%"
+                        contenuto = contenuto.replace(gradi_match.group(0), "")
 
-                    formato_match = re.search(r"\b(0[.,]\d{1,3}|[.,]\d{1,3})\b", line_clean)
-                    formato = formato_match.group(1).replace(",", ".") if formato_match else ""
-                    formato_str = f"{formato} l" if formato else ""
+                    # Estrai formato (es. 0.5, 0,7)
+                    formato = ""
+                    formato_match = re.search(r"\b(0[.,]\d{1,3})\b", contenuto)
+                    if formato_match:
+                        formato = formato_match.group(1).replace(",", ".") + " l"
+                        contenuto = contenuto.replace(formato_match.group(1), "")
 
-                    gradi_match = re.search(r"\b(\d{1,2})\b(?=\s*€|\s*$)", line_clean)
-                    gradi = gradi_match.group(1) + "%" if gradi_match else ""
-
-                    descr = line_clean.strip()
-
-                    if formato and formato in descr:
-                        descr = descr.replace(formato, "").strip()
-
-                    extra = " ".join(x for x in [formato_str, gradi, annata] if x).strip()
-                    if extra:
-                        descr += f" {extra}"
-
-                    note_match = re.findall(r"\b(BIO|RISERVA|LIMITIERT|\d+\s*M\.|Holz|Edelstahl|barrique|ciliegio|rovere)\b", line, flags=re.IGNORECASE)
+                    # Estrai note da testo
+                    note_match = re.findall(r"\b(BIO|RISERVA|LIMITIERT|barrique|Holz|Edelstahl|ciliegio|rovere)\b", contenuto, flags=re.IGNORECASE)
                     note = ", ".join(note_match)
 
-                    descrizione_finale = f"{produttore.upper()} {descr}".strip()
+                    # Ricostruisci descrizione
+                    descrizione = " ".join(contenuto.split()).strip()
+                    descrizione_finale = f"{descrizione} {formato} {gradi}".strip()
 
                     prodotti.append({
                         "fornitore": "HARPF",
