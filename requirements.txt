@@ -6,4 +6,4 @@ openpyxl
 pytesseract
 Pillow
 PyMuPDF
-streamlit_auth0_component
+streamlit-auth0-component
