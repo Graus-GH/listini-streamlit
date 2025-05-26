@@ -1,39 +1,4 @@
 
-import streamlit as st
-from streamlit_auth0_component import login_button
-
-# CONFIGURAZIONE AUTH0
-AUTH0_DOMAIN = "dev-wst2ot7yz4hr24d1.us.auth0.com"
-CLIENT_ID = "QtK2P6sL3w9YAyXNOWTaCcKeCkqfuAKR"
-CLIENT_SECRET = "-doQRV9aobd76VQnNQG5NySWo8zPg6J_E5HNPrVS74GLNqAfev4NjJ07a6MDcQQ6"
-
-st.set_page_config(page_title="🔒 Login Sicuro", layout="centered")
-
-st.title("🔐 Accesso Riservato")
-st.write("Solo utenti con email @graus.bz.it possono accedere.")
-
-# Bottone login
-result = login_button(
-    domain=AUTH0_DOMAIN,
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    redirect_uri="http://localhost:8501",  # Cambia se usi Streamlit Cloud
-    key="auth0-login",
-)
-
-# Controllo risultato login
-if result and result.get("email"):
-    email = result["email"]
-    if not email.endswith("@graus.bz.it"):
-        st.error("❌ Accesso negato: solo per email @graus.bz.it")
-        st.stop()
-    else:
-        st.success(f"✅ Benvenuto {email}!")
-        st.write("Ora puoi accedere all'applicazione.")
-else:
-    st.warning("Effettua il login per continuare.")
-    st.stop()
-
 
 import streamlit as st
 import pandas as pd
