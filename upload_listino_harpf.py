@@ -44,19 +44,23 @@ if uploaded_file and data_listino:
                     annata_match = re.search(r"(19|20)\d{2}", line_clean)
                     annata = annata_match.group(0) if annata_match else ""
 
-                    formato_match = re.search(r"(0[.,]\d{2,3}|[.,]\d{2,3}|[.,]?75[0-9]?)", line_clean)
-                    formato = formato_match.group(0).replace(",", ".") if formato_match else ""
+                    formato_match = re.search(r"\b(0[.,]\d{1,3}|[.,]\d{1,3})\b", line_clean)
+                    formato = formato_match.group(1).replace(",", ".") if formato_match else ""
+                    formato_str = f"{formato} l" if formato else ""
 
                     gradi_match = re.search(r"(\d{1,2}[.,]\d)\s?%", line_clean)
                     gradi = gradi_match.group(1).replace(",", ".") + "%" if gradi_match else ""
 
                     descr = line_clean.strip()
-                    if annata and annata not in descr:
-                        descr += f" {annata}"
-                    if formato:
-                        descr += f" {formato}l"
-                    if gradi:
-                        descr += f" {gradi}"
+
+                    # Evita doppio formato
+                    if formato and formato in descr:
+                        descr = descr.replace(formato, "").strip()
+
+                    # Costruzione finale
+                    extra = " ".join(x for x in [formato_str, gradi, annata] if x).strip()
+                    if extra:
+                        descr += f" {extra}"
 
                     note_match = re.findall(r"\b(BIO|RISERVA|LIMITIERT|\d+\s*M\.|Holz|Edelstahl)\b", line, flags=re.IGNORECASE)
                     note = ", ".join(note_match)
