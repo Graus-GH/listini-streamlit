@@ -1,36 +1,40 @@
 import streamlit as st
-import streamlit_authenticator as stauth
+from supabase import create_client, Client
 
-# --- AUTENTICAZIONE ---
-names = ["Utente Graus"]
-usernames = ["utente@graus.bz.it"]
-passwords = ["provapassword"]
+# --- CONFIGURAZIONE SUPABASE ---
+SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-# Conversione sicura a stringhe
-passwords = list(map(str, passwords))
-hashed_passwords = stauth.Hasher(passwords).generate()
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-authenticator = stauth.Authenticate(
-    names=names,
-    usernames=usernames,
-    passwords=hashed_passwords,
-    cookie_name="graus_login",
-    key="graus_secret_key",
-    cookie_expiry_days=1
-)
+st.set_page_config(page_title="Login via Supabase", layout="centered")
+st.title("🔐 Login con codice email")
+st.write("Accesso riservato agli indirizzi email @graus.bz.it")
 
-name, authentication_status, username = authenticator.login("Login", "main")
+# --- FORM LOGIN ---
+email = st.text_input("Inserisci la tua email @graus.bz.it")
 
-if authentication_status:
-    if not username.endswith("@graus.bz.it"):
-        st.error("Accesso negato: solo per email @graus.bz.it")
+if email and not email.endswith("@graus.bz.it"):
+    st.warning("Solo email @graus.bz.it autorizzate")
+    st.stop()
+
+if email and st.button("Invia codice"):
+    res = supabase.auth.sign_in_with_otp({"email": email})
+    if res:
+        st.success("Controlla la tua email per il codice di accesso!")
+    else:
+        st.error("Errore nell'invio. Riprova.")
+
+# --- Verifica sessione attiva ---
+session = supabase.auth.get_session().session
+if session and session.user:
+    user_email = session.user.email
+    if user_email.endswith("@graus.bz.it"):
+        st.success(f"Benvenuto {user_email}")
+        # Inserisci qui il tuo codice dell'app protetta (es. consulta listini)
+    else:
+        st.error("Accesso negato: solo email @graus.bz.it")
         st.stop()
-    authenticator.logout("Logout", "sidebar")
-    st.sidebar.success(f"Loggato come {username}")
-elif authentication_status is False:
-    st.error("Username o password errati")
-elif authentication_status is None:
-    st.info("Inserisci le credenziali per accedere")
 
 
 
