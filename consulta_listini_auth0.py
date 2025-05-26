@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_auth0_component import login_button
+import streamlit_authenticator as stauth
 import pandas as pd
 import re
 from datetime import datetime
@@ -8,27 +8,43 @@ from supabase import create_client, Client
 import io
 import math
 
-# AUTENTICAZIONE AUTH0
-AUTH0_DOMAIN = "dev-wst2ot7yz4hr24d1.us.auth0.com"
-CLIENT_ID = "QtK2P6sL3w9YAyXNOWTaCcKeCkqfuAKR"
-CLIENT_SECRET = "-doQRV9aobd76VQnNQG5NySWo8zPg6J_E5HNPrVS74GLNqAfev4NjJ07a6MDcQQ6"
+# --- AUTENTICAZIONE ---
+names = ["Utente Graus"]
+usernames = ["utente@graus.bz.it"]
+passwords = ["provapassword"]
 
-result = login_button(
-    domain=AUTH0_DOMAIN,
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    redirect_uri="http://localhost:8501",
-    key="auth0-login"
+hashed_passwords = stauth.Hasher(passwords).generate()
+
+authenticator = stauth.Authenticate(
+    names=names,
+    usernames=usernames,
+    passwords=hashed_passwords,
+    cookie_name="graus_login",
+    key="graus_secret_key",
+    cookie_expiry_days=1
 )
 
-if result and result.get("email"):
-    email = result["email"]
-    if not email.endswith("@graus.bz.it"):
-        st.error("❌ Accesso negato: solo per email @graus.bz.it")
+name, authentication_status, username = authenticator.login("Login", "main")
+
+if authentication_status:
+    if not username.endswith("@graus.bz.it"):
+        st.error("Accesso negato: solo per email @graus.bz.it")
         st.stop()
-else:
-    st.warning("Effettua il login per continuare.")
-    st.stop()
+    authenticator.logout("Logout", "sidebar")
+    st.sidebar.success(f"Loggato come {username}")
+
+
+
+
+
+import streamlit as st
+import pandas as pd
+import re
+from datetime import datetime
+from collections import Counter
+from supabase import create_client, Client
+import io
+import math
 
 # CONFIGURAZIONE SUPABASE
 SUPABASE_URL = "https://fkyvrsoiaoackpijprmh.supabase.co"
@@ -37,6 +53,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Consulta Listini (interattivo)", layout="wide")
 
+# Logo sopra al titolo
 st.markdown("""
     <div style="text-align: right; margin-bottom: -10px;">
         <img src="https://images.squarespace-cdn.com/content/v1/663dbdc9ee50c97d394658a4/d630ab5c-24ad-4c20-af78-d18744394601/New+Project+%2825%29.png?format=1500w"
@@ -46,6 +63,7 @@ st.markdown("""
 
 st.markdown("<h3>📊 Consulta Listini Caricati</h3>", unsafe_allow_html=True)
 
+# Caching caricamento dati
 @st.cache_data
 def carica_dati_supabase():
     data = []
@@ -68,6 +86,7 @@ if df_all.empty:
     st.warning("⚠️ Nessun dato trovato.")
     st.stop()
 
+# Sidebar - Filtri
 page_size = 500
 total_pages = math.ceil(len(df_all) / page_size)
 page_number = st.sidebar.number_input("📄 Pagina", min_value=1, max_value=total_pages, value=1)
@@ -76,19 +95,21 @@ with st.sidebar:
     st.header("🔍 Filtri")
     fornitori = sorted(df_all["fornitore"].dropna().unique())
     fornitore_sel = st.multiselect("Fornitore", fornitori, default=fornitori)
-
+    
     date_min = pd.to_datetime(df_all["data_listino"]).min()
     date_max = pd.to_datetime(df_all["data_listino"]).max()
     date_range = st.date_input("Intervallo data listino", [date_min, date_max])
 
     search_text = st.text_input("Testo libero (prodotto, note...)")
 
+# Filtraggio iniziale
 df_filtrato = df_all[
     df_all["fornitore"].isin(fornitore_sel) &
     (pd.to_datetime(df_all["data_listino"]) >= pd.to_datetime(date_range[0])) &
     (pd.to_datetime(df_all["data_listino"]) <= pd.to_datetime(date_range[1]))
 ].copy()
 
+# Ricerca parole chiave più veloce
 parole = search_text.lower().split() if search_text else []
 if parole:
     df_filtrato["testo_completo"] = df_filtrato.astype(str).agg(" ".join, axis=1).str.lower()
@@ -96,6 +117,7 @@ if parole:
         df_filtrato = df_filtrato[df_filtrato["testo_completo"].str.contains(parola, na=False)]
     df_filtrato.drop(columns="testo_completo", inplace=True)
 
+# Calcolo parole più frequenti
 if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
     testo = " ".join(df_filtrato["descrizione_prodotto"].dropna().str.lower())
     parole_grezze = re.findall(r'\b\w+\b', testo)
@@ -109,16 +131,22 @@ if not df_filtrato.empty and "descrizione_prodotto" in df_filtrato.columns:
     tag_html += "</div>"
     st.sidebar.markdown(tag_html, unsafe_allow_html=True)
 
+# Paginazione
 offset = (page_number - 1) * page_size
-df_filtrato = df_filtrato.sort_values(by=["fornitore", "descrizione_prodotto", "prezzo"], ascending=True)
+df_filtrato = df_filtrato.sort_values(by=["fornitore", "descrizione_prodotto", "prezzo"], ascending=[True, True, True])
 df_pagina = df_filtrato.iloc[offset:offset + page_size]
 
+
+st.markdown(f"<h5>✅ {len(df_pagina)} risultati nella pagina {page_number} su {len(df_filtrato)} risultati totali filtrati • {math.ceil(len(df_filtrato)/page_size)} pagine totali</h5>", unsafe_allow_html=True)
+
+# Ordine colonne
 colonne_base = [col for col in df_pagina.columns if col not in ["id", "categoria", "data_caricamento", "nome_file"]]
 if "prezzo" in colonne_base and "descrizione_prodotto" in colonne_base:
     colonne_base.remove("prezzo")
     colonne_base.insert(colonne_base.index("descrizione_prodotto"), "prezzo")
 df_display = df_pagina[colonne_base].copy()
 
+# Favicon per Fornitori
 def aggiungi_favicon(fornitore):
     nome = str(fornitore).upper()
     if nome == "GRAUS":
@@ -133,6 +161,8 @@ def aggiungi_favicon(fornitore):
 
 df_display["fornitore"] = df_display["fornitore"].apply(aggiungi_favicon)
 
+
+# Evidenzia parole ricercate
 def evidenzia_html(val, parole, fornitore=None):
     val_str = str(val)
     colore = "#d0ebff" if "graus" in str(fornitore).lower() else "yellow"
@@ -148,6 +178,7 @@ if parole:
             for val, row in zip(df_display[col], df_pagina.to_dict("records"))
         ]
 
+# Costruzione tabella HTML
 def build_custom_html_table(df):
     headers = "".join(
         f"<th style='text-align:center'>{col}</th>" if col == "prezzo" else f"<th>{col}</th>"
@@ -171,6 +202,7 @@ def build_custom_html_table(df):
         </table>
     """
 
+# CSS tabella
 st.markdown("""
     <style>
     .styled-table {
@@ -198,8 +230,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Tabella
 st.markdown(build_custom_html_table(df_display), unsafe_allow_html=True)
 
+# Download Excel
 if not df_pagina.empty:
     buffer = io.BytesIO()
     df_pagina.to_excel(buffer, index=False, engine="openpyxl")
